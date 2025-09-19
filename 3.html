@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketchfab 3D Configurator — Refined Prototype</title>
+  <style>
+    :root{
+      --bg:#080b14; --panel:#0f1629; --panel-2:#0b1120; --text:#e8ecf6; --muted:#98a2b3; --accent:#7dd3fc; --accent-2:#60a5fa;
+      --border:#1c2748; --ring:#93c5fd; --ok:#10b981; --warn:#f59e0b
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 15% -10%, rgba(96,165,250,.12), transparent),
+                     radial-gradient(1200px 800px at 110% 110%, rgba(125,211,252,.10), transparent),
+                     var(--bg);color:var(--text);font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial}
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:12px;min-height:100vh}
+    .panel{padding:18px 16px 22px;background:linear-gradient(180deg,var(--panel),var(--panel-2));border-left:1px solid var(--border)}
+    .panel h1{margin:0 0 6px;font-size:18px;letter-spacing:.2px}
+    .group{border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;background:#0b1326}
+    .group h2{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:600;letter-spacing:.2px}
+    .row{display:flex;gap:8px;align-items:center;margin:8px 0}
+    label{min-width:98px;color:var(--muted)}
+    input[type="text"], select, button{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#0a1222;color:var(--text)}
+    input[type="file"]{width:100%}
+    button{cursor:pointer;transition:transform .03s ease}
+    button:active{transform:translateY(1px)}
+    .primary{background:linear-gradient(180deg,#1e293b,#0f172a);border-color:#24375f}
+    .accent{background:linear-gradient(180deg,#0b2a4a,#0a213a);border-color:#164e83}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    iframe{width:100%;height:100vh;border:0;border-left:1px solid var(--border)}
+
+    /* Big custom color picker */
+    .picker{display:grid;grid-template-columns:1fr 28px;gap:10px;align-items:start}
+    .svWrap{position:relative}
+    canvas#sv{width:100%;height:220px;border-radius:12px;border:1px solid var(--border);display:block}
+    canvas#hue{width:28px;height:220px;border-radius:10px;border:1px solid var(--border);display:block}
+    .thumb{position:absolute;width:14px;height:14px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.6);pointer-events:none;transform:translate(-7px,-7px)}
+    .swatch{width:100%;height:38px;border-radius:10px;border:1px solid var(--border);margin-top:10px}
+
+    /* Actions */
+    .actions{display:flex;gap:8px}
+    #shotWrap img{margin-top:10px;display:block;max-width:100%;border:1px solid var(--border);border-radius:12px}
+  </style>
+</head>
+<body>
+  <!--
+    CHANGES
+    - Removed the placeholder/broken image icon: no <img> exists until after the first screenshot.
+    - Texture upload now assigns a proper texture object { uid } and removes any color on that channel, matching official guidance.
+    - Fixed hsvToRgb typo in case 5.
+  -->
+
+  <div class="wrap">
+    <div class="panel">
+      <h1>3D Configurator</h1>
+
+      <div class="group">
+        <h2>Model</h2>
+        <div class="row"><label for="uid">Model UID</label><input id="uid" type="text" placeholder="Paste Sketchfab model UID" value="f8c507c1ac094d5caa66af2c687bca6b" /></div>
+        <div class="row"><button id="loadBtn" class="primary">Load / Reload</button></div>
+        <div class="hint">Tip: The UID is the long id in the model URL.</div>
+      </div>
+
+      <div class="group">
+        <h2>Material</h2>
+        <div class="row"><label for="materialSelect">Material</label><select id="materialSelect"></select></div>
+      </div>
+
+      <div class="group">
+        <h2>Color (Base)</h2>
+        <div class="picker">
+          <div class="svWrap">
+            <canvas id="sv"></canvas>
+            <div id="svThumb" class="thumb" style="left:0;top:0"></div>
+            <div class="swatch" id="swatch"></div>
+          </div>
+          <canvas id="hue"></canvas>
+        </div>
+        <div class="hint">Drag in the square for saturation/value; drag the bar for hue. Applies live to the selected material.</div>
+      </div>
+
+      <div class="group">
+        <h2>Texture (Albedo)</h2>
+        <div class="row">
+          <label for="texFile">Upload</label>
+          <input id="texFile" type="file" accept="image/*" />
+        </div>
+        <div class="hint">Applied at runtime to the Base Color channel; uses <code>addTexture()</code> → <code>setMaterial()</code> with a proper texture object.</div>
+      </div>
+
+      <div class="group">
+        <h2>Actions</h2>
+        <div class="actions">
+          <button id="shotBtn" class="accent">Screenshot</button>
+        </div>
+        <div id="shotWrap"></div>
+      </div>
+    </div>
+
+    <iframe id="api-frame" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share src="about:blank"></iframe>
+  </div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    const iframe = document.getElementById('api-frame');
+    const loadBtn = document.getElementById('loadBtn');
+    const uidInput = document.getElementById('uid');
+    const materialSelect = document.getElementById('materialSelect');
+    const shotBtn = document.getElementById('shotBtn');
+    const shotWrap = document.getElementById('shotWrap');
+    const texFile = document.getElementById('texFile');
+
+    // Custom picker elements
+    const svCanvas = document.getElementById('sv');
+    const hueCanvas = document.getElementById('hue');
+    const svThumb = document.getElementById('svThumb');
+    const swatch = document.getElementById('swatch');
+
+    let api = null;
+    let matByName = new Map();
+    let currentMat = null;
+
+    // HSV state
+    const hsv = { h: 0, s: 1, v: 1 };
+
+    function buildEmbedURL(uid){
+      const params = new URLSearchParams({
+        autostart:'1', preload:'1', dnt:'1', camera:'0', ui_theme:'dark', ui_infos:'0', ui_controls:'1', ui_annotations:'0', ui_inspector:'1'
+      }).toString();
+      return `https://sketchfab.com/models/${uid}/embed?${params}`;
+    }
+
+    function initViewer(uid){
+      iframe.src = buildEmbedURL(uid);
+      const client = new Sketchfab('1.12.1', iframe);
+      client.init(uid, {
+        success: function onSuccess(apiHandle){
+          api = apiHandle;
+          api.start();
+          api.addEventListener('viewerready', function(){
+            // Populate materials
+            api.getMaterialList(function(err, materials){
+              if(err){ console.warn('getMaterialList error', err); return; }
+              matByName.clear();
+              materialSelect.innerHTML='';
+              materials.forEach(m=>{
+                matByName.set(m.name, m);
+                const opt = document.createElement('option');
+                opt.value = m.name; opt.textContent = m.name; materialSelect.appendChild(opt);
+              });
+              currentMat = materials[0] || null;
+              if(currentMat){ materialSelect.value = currentMat.name; applyHSVToMaterial(); }
+            });
+          });
+        },
+        error: function(){ console.error('Sketchfab viewer failed to init'); }
+      });
+    }
+
+    // -------- Color utilities --------
+    function hsvToRgb(h, s, v){
+      let r,g,b; const i = Math.floor(h*6); const f = h*6 - i; const p = v*(1-s); const q = v*(1-f*s); const t = v*(1-(1-f)*s); switch(i%6){
+        case 0: r=v,g=t,b=p; break; case 1: r=q,g=v,b=p; break; case 2: r=p,g=v,b=t; break; case 3: r=p,g=q,b=v; break; case 4: r=t,g=p,b=v; break; case 5: r=v,g=p,b=q; break;
+      } return [r,g,b];
+    }
+    function rgbToHex(r,g,b){
+      const to = x=>('0'+Math.round(x*255).toString(16)).slice(-2); return `#${to(r)}${to(g)}${to(b)}`;
+    }
+    function updateSwatch(){ swatch.style.background = rgbToHex(...hsvToRgb(hsv.h, hsv.s, hsv.v)); }
+
+    function drawHue(){
+      const ctx = hueCanvas.getContext('2d');
+      const {width:w, height:h} = hueCanvas;
+      const grad = ctx.createLinearGradient(0,0,0,h);
+      for(let i=0;i<=360;i+=6){ grad.addColorStop(i/360, `hsl(${i} 100% 50%)`); }
+      ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+    }
+    function drawSV(){
+      const ctx = svCanvas.getContext('2d');
+      const {width:w, height:h} = svCanvas;
+      // Base hue
+      ctx.fillStyle = `hsl(${Math.round(hsv.h*360)} 100% 50%)`; ctx.fillRect(0,0,w,h);
+      // White overlay (saturation)
+      const gradWhite = ctx.createLinearGradient(0,0,w,0);
+      gradWhite.addColorStop(0,'#ffffff'); gradWhite.addColorStop(1,'#ffffff00');
+      ctx.fillStyle = gradWhite; ctx.fillRect(0,0,w,h);
+      // Black overlay (value)
+      const gradBlack = ctx.createLinearGradient(0,0,0,h);
+      gradBlack.addColorStop(0,'#00000000'); gradBlack.addColorStop(1,'#000000');
+      ctx.fillStyle = gradBlack; ctx.fillRect(0,0,w,h);
+      // Thumb position
+      const x = hsv.s * w; const y = (1 - hsv.v) * h;
+      svThumb.style.left = x + 'px'; svThumb.style.top = y + 'px';
+    }
+
+    function onSVPointer(evt){
+      const rect = svCanvas.getBoundingClientRect();
+      const x = Math.min(Math.max(0, (evt.clientX || (evt.touches&&evt.touches[0].clientX)) - rect.left), rect.width);
+      const y = Math.min(Math.max(0, (evt.clientY || (evt.touches&&evt.touches[0].clientY)) - rect.top), rect.height);
+      hsv.s = x / rect.width; hsv.v = 1 - (y / rect.height);
+      drawSV(); updateSwatch(); applyHSVToMaterial();
+    }
+    function onHuePointer(evt){
+      const rect = hueCanvas.getBoundingClientRect();
+      const y = Math.min(Math.max(0, (evt.clientY || (evt.touches&&evt.touches[0].clientY)) - rect.top), rect.height);
+      hsv.h = y / rect.height; drawHue(); drawSV(); updateSwatch(); applyHSVToMaterial();
+    }
+
+    function addDrag(el, handler){
+      let down=false; const onDown=e=>{down=true; handler(e);}; const onMove=e=>{ if(down) handler(e); }; const onUp=()=>{down=false};
+      el.addEventListener('mousedown', onDown); el.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+      el.addEventListener('touchstart', onDown, {passive:true}); el.addEventListener('touchmove', onMove, {passive:true}); window.addEventListener('touchend', onUp);
+    }
+
+    function getBaseColorChannelName(mat){
+      if(!mat || !mat.channels) return null;
+      if(mat.channels.AlbedoPBR) return 'AlbedoPBR';
+      if(mat.channels.DiffusePBR) return 'DiffusePBR';
+      if(mat.channels.DiffuseColor) return 'DiffuseColor';
+      return 'AlbedoPBR';
+    }
+
+    function applyHSVToMaterial(){
+      if(!api || !currentMat) return;
+      const channel = getBaseColorChannelName(currentMat);
+      const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+      currentMat.channels = Object.assign({}, currentMat.channels);
+      const ch = Object.assign({}, currentMat.channels[channel]||{});
+      ch.enable = true; ch.factor = ch.factor ?? 1; // keep texture if present; color won't affect when texture is used
+      ch.color = rgb;
+      currentMat.channels[channel] = ch;
+      api.setMaterial(currentMat, function(err){ if(err) console.warn('setMaterial error', err); });
+    }
+
+    // Material selection
+    materialSelect.addEventListener('change', function(){ currentMat = matByName.get(this.value) || null; applyHSVToMaterial(); });
+
+    // Texture upload -> canvas -> DataURL -> addTexture -> setMaterial
+    texFile.addEventListener('change', function(){
+      if(!api || !currentMat || !this.files || !this.files[0]) return;
+      const file = this.files[0];
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = function(){
+        try{
+          const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+          const ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+          const dataURL = c.toDataURL('image/png');
+          api.addTexture(dataURL, function(err, texUid){
+            if(err){ console.warn('addTexture error', err); return; }
+            const channel = getBaseColorChannelName(currentMat);
+            const channels = Object.assign({}, currentMat.channels);
+            const ch = Object.assign({}, channels[channel]||{});
+            ch.enable = true; ch.factor = ch.factor ?? 1;
+            ch.texture = { uid: texUid };    // official shape
+            if('color' in ch) delete ch.color; // remove color so texture is used
+            channels[channel] = ch;
+            currentMat.channels = channels;
+            api.setMaterial(currentMat, function(e){ if(e) console.warn('setMaterial tex error', e); });
+          });
+        } finally { URL.revokeObjectURL(url); }
+      };
+      img.src = url;
+    });
+
+    // Screenshot -> create img on first capture (blank before)
+    shotBtn.addEventListener('click', function(){
+      if(!api) return;
+      api.getScreenShot('image/png', function(err, dataURI){
+        if(err) return;
+        let img = shotWrap.querySelector('img');
+        if(!img){ img = document.createElement('img'); shotWrap.appendChild(img); }
+        img.src = dataURI;
+      });
+    });
+
+    // Load button
+    loadBtn.addEventListener('click', function(){
+      const uid = uidInput.value.trim();
+      if(uid) initViewer(uid);
+    });
+
+    // Initialize picker visuals
+    function resizeCanvases(){
+      // Match CSS pixels
+      const ratio = window.devicePixelRatio || 1;
+      const svRect = svCanvas.getBoundingClientRect();
+      svCanvas.width = Math.max(240, Math.floor(svRect.width * ratio));
+      svCanvas.height = Math.max(200, Math.floor(220 * ratio));
+      hueCanvas.width = Math.floor(28 * ratio);
+      hueCanvas.height = svCanvas.height;
+      drawHue(); drawSV(); updateSwatch();
+    }
+    window.addEventListener('resize', resizeCanvases);
+    addDrag(svCanvas, onSVPointer); addDrag(hueCanvas, onHuePointer);
+    // Boot once DOM is ready
+    requestAnimationFrame(resizeCanvases);
+  </script>
+</body>
+</html>
