@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sketchfab 3D Configurator — Single‑Model v9</title>
+  <title>Sketchfab 3D Configurator — Single‑Model v10</title>
   <style>
     :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444 }
     *{box-sizing:border-box}
@@ -23,16 +23,18 @@
     .viewer{height:100vh}
     iframe{width:100%;height:100%;border:0;border-left:1px solid var(--border);background:transparent}
 
-    /* Swatch that opens the native color palette */
-    .swatchWrap{position:relative;width:48px;height:28px}
-    .swatch{position:absolute;inset:0;border-radius:6px;border:1px solid var(--border);background:#ffffff;cursor:pointer;transition:background-color .15s ease}
-    .colorOverlay{position:absolute;inset:0;opacity:0;cursor:pointer}
-    .disabled .swatch{opacity:.4}
+    /* Minimal color box that opens native palette on click */
+    input[type="color"].colorBox{
+      -webkit-appearance: none; appearance: none;
+      border:1px solid var(--border); border-radius:6px; width:48px; height:28px; padding:0; background:#ffffff; cursor:pointer;
+    }
+    input[type="color"].colorBox::-webkit-color-swatch-wrapper{ padding:0 }
+    input[type="color"].colorBox::-webkit-color-swatch{ border:none; border-radius:6px }
+    .disabled{opacity:.45; pointer-events:none}
   </style>
 </head>
 <body>
   <!-- CONFIG: edit materials here (model UID is hard‑wired in client.init()) -->
-  <!-- DESIGN_MATERIAL = upload target; COLOR1_MATERIAL / COLOR2_MATERIAL = swatch‑controlled materials -->
 
   <div class="wrap">
     <div class="panel">
@@ -41,18 +43,18 @@
       <div class="group">
         <h2>Design</h2>
         <div class="row"><label for="texFile">Upload texture</label><input id="texFile" type="file" accept="image/*" /></div>
-        <div class="hint">Applies to material in code config.</div>
+        <div class="hint">Upload targets the configured design material.</div>
       </div>
 
       <div class="group">
         <h2>Colors</h2>
         <div class="row">
           <label>Color 1</label>
-          <div id="c1Wrap" class="swatchWrap"><div id="c1Swatch" class="swatch"></div><input id="c1Input" type="color" value="#ffffff" class="colorOverlay" /></div>
+          <input id="c1Input" class="colorBox" type="color" value="#ffffff" />
         </div>
         <div class="row">
           <label>Color 2</label>
-          <div id="c2Wrap" class="swatchWrap"><div id="c2Swatch" class="swatch"></div><input id="c2Input" type="color" value="#ffffff" class="colorOverlay" /></div>
+          <input id="c2Input" class="colorBox" type="color" value="#ffffff" />
         </div>
         <div class="hint">Click the white box to open the native palette. Picking a color clears texture on that material.</div>
       </div>
@@ -74,13 +76,7 @@
     // DOM
     const iframe = document.getElementById('api-frame');
     const texFile = document.getElementById('texFile');
-
-    const c1Wrap = document.getElementById('c1Wrap');
-    const c1Swatch = document.getElementById('c1Swatch');
     const c1Input  = document.getElementById('c1Input');
-
-    const c2Wrap = document.getElementById('c2Wrap');
-    const c2Swatch = document.getElementById('c2Swatch');
     const c2Input  = document.getElementById('c2Input');
 
     // State
@@ -98,10 +94,7 @@
       return null;
     }
     function hexToRGBNorm(hex){ const h = hex.replace('#',''); const i = parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
-    function rgbNormToHex(arr){
-      const toHex = v => ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2);
-      return `#${toHex(arr[0]||0)}${toHex(arr[1]||0)}${toHex(arr[2]||0)}`;
-    }
+    function rgbNormToHex(arr){ const toHex = v => ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); return `#${toHex(arr[0]||0)}${toHex(arr[1]||0)}${toHex(arr[2]||0)}`; }
     function baseColorChannel(mat){ const ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
 
     // Viewer init
@@ -118,8 +111,8 @@
             api.getMaterialList(function(err, mats){
               if(err){ console.warn('getMaterialList error', err); return; }
               materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m));
-              setupColor(COLOR1_MATERIAL, c1Wrap, c1Swatch, c1Input);
-              if(COLOR2_MATERIAL){ setupColor(COLOR2_MATERIAL, c2Wrap, c2Swatch, c2Input); } else { c2Wrap.classList.add('disabled'); }
+              setupColor(COLOR1_MATERIAL, c1Input);
+              if(COLOR2_MATERIAL){ setupColor(COLOR2_MATERIAL, c2Input); } else { c2Input.classList.add('disabled'); c2Input.disabled = true; }
             });
           });
         },
@@ -127,25 +120,17 @@
       });
     })();
 
-    // Swatch + input overlay; clicking box opens palette & swatch mirrors picked color
-    function setupColor(matName, wrapEl, swatchEl, inputEl){
+    function setupColor(matName, inputEl){
       const mat = findMaterial(matName);
-      if(!mat){ wrapEl.classList.add('disabled'); inputEl.disabled = true; return; }
+      if(!mat){ inputEl.classList.add('disabled'); inputEl.disabled = true; return; }
       inputEl.disabled = false;
 
+      // init with current material color if present
       const chName = baseColorChannel(mat);
       const ch = (mat.channels||{})[chName] || {};
       inputEl.value = Array.isArray(ch.color) ? rgbNormToHex(ch.color) : '#ffffff';
-      swatchEl.style.background = inputEl.value;
 
-      // Make sure click on box opens the palette everywhere
-      swatchEl.addEventListener('click', ()=>{ (inputEl.showPicker ? inputEl.showPicker() : inputEl.click()); });
-
-      const onPick = ()=>{
-        const hex = inputEl.value;
-        swatchEl.style.background = hex;   // <-- update the white box to chosen color
-        applyColor(matName, hex);
-      };
+      const onPick = ()=> applyColor(matName, inputEl.value);
       inputEl.addEventListener('input', onPick);
       inputEl.addEventListener('change', onPick);
     }
@@ -174,12 +159,9 @@
           api.addTexture(dataURL, function(err, texUid){
             if(err){ console.warn('addTexture error', err); return; }
             const channel = baseColorChannel(mat);
-            // FULL MATERIAL UPDATE (reliable): mutate live material, then push
             mat.channels = Object.assign({}, mat.channels);
             const ch = Object.assign({}, mat.channels[channel]||{});
-            ch.enable = true; ch.factor = ch.factor ?? 1;
-            ch.texture = { uid: texUid };
-            ch.color = [1,1,1]; // no tint
+            ch.enable = true; ch.factor = ch.factor ?? 1; ch.texture = { uid: texUid }; ch.color = [1,1,1];
             mat.channels[channel] = ch;
             api.setMaterial(mat, function(e){ if(e) console.warn('setMaterial tex error', e); });
           });
@@ -189,3 +171,4 @@
   </script>
 </body>
 </html>
+
