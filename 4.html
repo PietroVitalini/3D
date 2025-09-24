@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketchfab 3D Configurator — Single‑Model v3</title>
+  <style>
+    :root{
+      --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc;
+      --border:#1a2444; --ring:#93c5fd
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; overflow:hidden}
+    body{margin:0;background:radial-gradient(1200px 800px at 15% -10%, rgba(96,165,250,.12), transparent),
+                     radial-gradient(1200px 800px at 110% 110%, rgba(125,211,252,.10), transparent),
+                     var(--bg);color:var(--text);font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial}
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:12px;height:100vh}
+    .panel{height:100vh;overflow-y:auto;padding:20px 16px 24px;background:linear-gradient(180deg,var(--panel),var(--panel-2));border-left:1px solid var(--border)}
+    .panel h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
+    .group{border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;background:#0b1326}
+    .group h2{font-size:13px;color:var(--muted);margin:0 0 10px;font-weight:600;letter-spacing:.2px}
+    .row{display:flex;gap:8px;align-items:center;margin:10px 0}
+    label{min-width:98px;color:var(--muted)}
+    input[type="text"], select, button{width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:#0a1222;color:var(--text)}
+    input[type="file"], input[type="color"]{width:100%}
+    button{cursor:pointer}
+    button.primary{background:linear-gradient(180deg,#1e293b,#0f172a);border-color:#223157}
+    button.accent{background:linear-gradient(180deg,#0b2644,#0a1e36);border-color:#164e83}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .viewer{height:100vh}
+    iframe{width:100%;height:100%;border:0;border-left:1px solid var(--border);background:transparent}
+
+    .colorRow{display:flex;gap:8px;align-items:center}
+    .swatch{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:#ffffff}
+    .pickerBtn{width:auto}
+    .disabled{opacity:.5; pointer-events:none}
+    code.inline{background:#0a1222;padding:2px 6px;border-radius:6px;border:1px solid var(--border);color:var(--muted)}
+  </style>
+</head>
+<body>
+  <!--
+    CONFIG — set your model and materials here (single place)
+    ------------------------------------------------------
+    MODEL_UID: the only model this configurator targets.
+    DESIGN_MATERIAL: the material that receives uploaded textures.
+    COLOR1_MATERIAL: first color‑only material.
+    COLOR2_MATERIAL: second color‑only material (leave empty for now).
+  -->
+
+  <div class="wrap">
+    <div class="panel">
+      <h1>3D Configurator</h1>
+
+      <div class="group">
+        <h2>Model</h2>
+        <div class="row"><label>UID</label><input id="uidDisplay" type="text" readonly /></div>
+        <div class="hint">Hard‑wired for one model. Edit IDs in the <code class="inline">// CONFIG</code> section in the script.</div>
+      </div>
+
+      <div class="group">
+        <h2>Design</h2>
+        <div class="row"><label for="texFile">Upload texture</label><input id="texFile" type="file" accept="image/*" /></div>
+        <div class="hint">Applies to material: <span id="designMatName" class="inline"></span></div>
+      </div>
+
+      <div class="group">
+        <h2>Colors</h2>
+        <div class="row colorRow">
+          <label id="c1Label">Color 1</label>
+          <div id="c1Swatch" class="swatch"></div>
+          <button id="c1Btn" class="accent pickerBtn disabled">Pick color</button>
+          <input id="c1Input" type="color" value="#ffffff" class="hidden" style="position:fixed;left:-9999px;top:-9999px;opacity:0" />
+          <div class="hint" style="margin-left:auto;color:var(--muted)">Material: <span id="c1MatName" class="inline"></span></div>
+        </div>
+        <div class="row colorRow">
+          <label id="c2Label">Color 2</label>
+          <div id="c2Swatch" class="swatch"></div>
+          <button id="c2Btn" class="accent pickerBtn disabled">Pick color</button>
+          <input id="c2Input" type="color" value="#ffffff" class="hidden" style="position:fixed;left:-9999px;top:-9999px;opacity:0" />
+          <div class="hint" style="margin-left:auto;color:var(--muted)">Material: <span id="c2MatName" class="inline"></span></div>
+        </div>
+        <div class="hint">Picking a color clears texture on that material so solid color shows.</div>
+      </div>
+    </div>
+
+    <div class="viewer">
+      <iframe id="api-frame" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    // ====== CONFIG (edit here) ======
+    const MODEL_UID        = 'f8c507c1ac094d5caa66af2c687bca6b';
+    const DESIGN_MATERIAL  = 'Giacca1_FRONT_2563';          // receives uploaded texture
+    const COLOR1_MATERIAL  = 'Contrasto_FRONT_2545';        // first color picker
+    const COLOR2_MATERIAL  = '';                            // second color picker (set later)
+    // ====== /CONFIG ======
+
+    // DOM
+    const iframe = document.getElementById('api-frame');
+    const uidDisplay = document.getElementById('uidDisplay');
+    const texFile = document.getElementById('texFile');
+    const designMatName = document.getElementById('designMatName');
+
+    const c1Btn = document.getElementById('c1Btn');
+    const c1Input = document.getElementById('c1Input');
+    const c1Swatch = document.getElementById('c1Swatch');
+    const c1MatName = document.getElementById('c1MatName');
+
+    const c2Btn = document.getElementById('c2Btn');
+    const c2Input = document.getElementById('c2Input');
+    const c2Swatch = document.getElementById('c2Swatch');
+    const c2MatName = document.getElementById('c2MatName');
+
+    // State
+    let api = null;
+    const materialsByName = new Map(); // name -> live material
+
+    // Utils
+    function hexToRGBNorm(hex){ const h = hex.replace('#',''); const i = parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
+    function baseColorChannel(mat){ const ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
+
+    // Viewer init (single model)
+    function initViewer(){
+      uidDisplay.value = MODEL_UID;
+      designMatName.textContent = DESIGN_MATERIAL || '(unset)';
+      c1MatName.textContent = COLOR1_MATERIAL || '(unset)';
+      c2MatName.textContent = COLOR2_MATERIAL || '(unset)';
+
+      const client = new Sketchfab('1.12.1', iframe);
+      client.init(MODEL_UID, {
+        autostart: 1, preload: 1, dnt: 1, camera: 0, transparent: 1, ui_controls: 1,
+        ui_infos: 0, ui_help: 0, ui_settings: 0, ui_inspector: 0, ui_ar: 0, ui_vr: 0, ui_annotations: 0, ui_animations: 0, ui_stop: 0,
+        ui_watermark: 0, ui_watermark_link: 0,
+        success: function(apiHandle){
+          api = apiHandle; api.start();
+          api.addEventListener('viewerready', function(){
+            if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); }
+            api.getMaterialList(function(err, mats){
+              if(err){ console.warn('getMaterialList error', err); return; }
+              materialsByName.clear();
+              mats.forEach(m=> materialsByName.set(m.name, m));
+              // Enable color pickers if their materials exist
+              if(materialsByName.has(COLOR1_MATERIAL)) enablePicker(1);
+              if(materialsByName.has(COLOR2_MATERIAL) && COLOR2_MATERIAL) enablePicker(2);
+            });
+          });
+        },
+        error: function(){ console.error('Sketchfab viewer failed to init'); }
+      });
+    }
+
+    function enablePicker(idx){
+      const btn = idx===1? c1Btn : c2Btn; btn.classList.remove('disabled');
+      const input = idx===1? c1Input : c2Input; const swatch = idx===1? c1Swatch : c2Swatch;
+      btn.addEventListener('click', ()=>{ if(input.showPicker) input.showPicker(); else input.click(); });
+      input.addEventListener('input', ()=>{ swatch.style.background = input.value; setMaterialColor(idx===1?COLOR1_MATERIAL:COLOR2_MATERIAL, input.value); });
+    }
+
+    function setMaterialColor(matName, hex){
+      if(!api || !matName) return;
+      const mat = materialsByName.get(matName); if(!mat) return;
+      const channel = baseColorChannel(mat);
+      mat.channels = Object.assign({}, mat.channels);
+      const ch = Object.assign({}, mat.channels[channel]||{});
+      ch.enable = true; ch.factor = ch.factor ?? 1; ch.color = hexToRGBNorm(hex);
+      if(ch.texture) delete ch.texture; // solid color overrides texture
+      mat.channels[channel] = ch;
+      api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); });
+    }
+
+    function setMaterialTexture(matName, dataURL){
+      if(!api || !matName) return;
+      const mat = materialsByName.get(matName); if(!mat) return;
+      api.addTexture(dataURL, function(err, texUid){
+        if(err){ console.warn('addTexture error', err); return; }
+        const channel = baseColorChannel(mat);
+        mat.channels = Object.assign({}, mat.channels);
+        const ch = Object.assign({}, mat.channels[channel]||{});
+        ch.enable = true; ch.factor = ch.factor ?? 1; ch.texture = { uid: texUid }; ch.color = [1,1,1];
+        mat.channels[channel] = ch;
+        api.setMaterial(mat, function(e){ if(e) console.warn('setMaterial tex error', e); });
+      });
+    }
+
+    // Handle texture upload (design section)
+    texFile.addEventListener('change', function(){
+      if(!this.files || !this.files[0]) return; if(!materialsByName.has(DESIGN_MATERIAL)) { console.warn('Design material not found'); return; }
+      const file = this.files[0]; const img = new Image(); const url = URL.createObjectURL(file);
+      img.onload = function(){
+        try{ const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const ctx = c.getContext('2d'); ctx.drawImage(img,0,0); const dataURL = c.toDataURL('image/png'); setMaterialTexture(DESIGN_MATERIAL, dataURL); }
+        finally{ URL.revokeObjectURL(url); }
+      }; img.src = url;
+    });
+
+    // Boot
+    initViewer();
+  </script>
+</body>
+</html>
