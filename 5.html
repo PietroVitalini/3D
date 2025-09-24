@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sketchfab 3D Configurator — Single‑Model v8</title>
+  <title>Sketchfab 3D Configurator — Single‑Model v9</title>
   <style>
     :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444 }
     *{box-sizing:border-box}
@@ -25,7 +25,7 @@
 
     /* Swatch that opens the native color palette */
     .swatchWrap{position:relative;width:48px;height:28px}
-    .swatch{position:absolute;inset:0;border-radius:6px;border:1px solid var(--border);background:#ffffff;cursor:pointer}
+    .swatch{position:absolute;inset:0;border-radius:6px;border:1px solid var(--border);background:#ffffff;cursor:pointer;transition:background-color .15s ease}
     .colorOverlay{position:absolute;inset:0;opacity:0;cursor:pointer}
     .disabled .swatch{opacity:.4}
   </style>
@@ -119,8 +119,7 @@
               if(err){ console.warn('getMaterialList error', err); return; }
               materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m));
               setupColor(COLOR1_MATERIAL, c1Wrap, c1Swatch, c1Input);
-              if(COLOR2_MATERIAL){ setupColor(COLOR2_MATERIAL, c2Wrap, c2Swatch, c2Input); }
-              else { c2Wrap.classList.add('disabled'); }
+              if(COLOR2_MATERIAL){ setupColor(COLOR2_MATERIAL, c2Wrap, c2Swatch, c2Input); } else { c2Wrap.classList.add('disabled'); }
             });
           });
         },
@@ -128,7 +127,7 @@
       });
     })();
 
-    // Swatch + input overlay (no programmatic showPicker needed)
+    // Swatch + input overlay; clicking box opens palette & swatch mirrors picked color
     function setupColor(matName, wrapEl, swatchEl, inputEl){
       const mat = findMaterial(matName);
       if(!mat){ wrapEl.classList.add('disabled'); inputEl.disabled = true; return; }
@@ -139,7 +138,14 @@
       inputEl.value = Array.isArray(ch.color) ? rgbNormToHex(ch.color) : '#ffffff';
       swatchEl.style.background = inputEl.value;
 
-      const onPick = ()=>{ swatchEl.style.background = inputEl.value; applyColor(matName, inputEl.value); };
+      // Make sure click on box opens the palette everywhere
+      swatchEl.addEventListener('click', ()=>{ (inputEl.showPicker ? inputEl.showPicker() : inputEl.click()); });
+
+      const onPick = ()=>{
+        const hex = inputEl.value;
+        swatchEl.style.background = hex;   // <-- update the white box to chosen color
+        applyColor(matName, hex);
+      };
       inputEl.addEventListener('input', onPick);
       inputEl.addEventListener('change', onPick);
     }
@@ -168,11 +174,16 @@
           api.addTexture(dataURL, function(err, texUid){
             if(err){ console.warn('addTexture error', err); return; }
             const channel = baseColorChannel(mat);
-            const update = { id: mat.id, name: mat.name, channels: {} };
-            update.channels[channel] = { enable:true, factor:1, texture:{ uid: texUid }, color:[1,1,1] };
-            api.setMaterial(update, function(e){ if(e) console.warn('setMaterial tex error', e); });
+            // FULL MATERIAL UPDATE (reliable): mutate live material, then push
+            mat.channels = Object.assign({}, mat.channels);
+            const ch = Object.assign({}, mat.channels[channel]||{});
+            ch.enable = true; ch.factor = ch.factor ?? 1;
+            ch.texture = { uid: texUid };
+            ch.color = [1,1,1]; // no tint
+            mat.channels[channel] = ch;
+            api.setMaterial(mat, function(e){ if(e) console.warn('setMaterial tex error', e); });
           });
-        } finally { URL.revokeObjectURL(url); }
+        } finally { URL.revokeObjectURL(url); texFile.value = ''; }
       }; img.src = url;
     });
   </script>
