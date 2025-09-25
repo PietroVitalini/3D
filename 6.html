@@ -194,15 +194,6 @@
       await applyTextureFromDataURL(DESIGN_MATERIAL, dataURL);
       pushHistory({ id: j.id||crypto.randomUUID(), prompt, dataURL });
       statusEl.textContent = 'Applied';
-    }/v1/designs`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt }) });
-      if(!r.ok) throw new Error('Failed to start generation');
-      const { id } = await r.json();
-      statusEl.textContent = 'Generating…';
-      const url = await pollDesign(id);
-      const dataURL = await fetchAsDataURL(url);
-      await applyTextureFromDataURL(DESIGN_MATERIAL, dataURL);
-      pushHistory({ id, prompt, dataURL });
-      statusEl.textContent = 'Applied';
     }
 
     async function pollDesign(id){
