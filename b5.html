@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketchfab 3D Configurator — Final Prototype v14</title>
+  <style>
+    :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444; --danger:#ef4444 }
+    *{box-sizing:border-box}
+    html,body{height:100%; overflow:hidden}
+    body{margin:0;background:
+      radial-gradient(1200px 800px at 15% -10%, rgba(96,165,250,.12), transparent),
+      radial-gradient(1200px 800px at 110% 110%, rgba(125,211,252,.10), transparent),
+      var(--bg);color:var(--text);font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial}
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:12px;height:100vh}
+    .panel{height:100vh;overflow-y:auto;padding:20px 16px 24px;background:linear-gradient(180deg,var(--panel),var(--panel-2));border-left:1px solid var(--border)}
+    .panel h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
+    .group{border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;background:#0b1326}
+    .group h2{font-size:13px;color:var(--muted);margin:0 0 10px;font-weight:600;letter-spacing:.2px}
+    .row{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}
+    label{min-width:92px;color:var(--muted)}
+    select, input[type="text"], input[type="email"], textarea{width:100%}
+    textarea#prompt{width:100%;display:block;resize:none;min-height:100px;border:1px solid var(--border);border-radius:12px;background:#0a1222;color:var(--text);padding:12px;outline:none;overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
+    textarea#prompt::-webkit-scrollbar{width:0;height:0}
+    button{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:var(--text);cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .viewer{height:100vh}
+    iframe{width:100%;height:100%;border:0;border-left:1px solid var(--border);background:transparent}
+
+    select{appearance:none;-webkit-appearance:none;background:#0a1222;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 36px 10px 12px;line-height:1.2;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6" fill="none" stroke="%239aa5b3" stroke-width="2"/></svg>');background-repeat:no-repeat;background-position:right 10px center}
+    select:focus{outline:none;box-shadow:0 0 0 2px rgba(125,211,252,.35);border-color:var(--accent)}
+
+    #genBtn,#dlBtn{display:block;width:100%}
+
+    .navRow{display:grid;grid-template-columns:1fr 140px 1fr;gap:8px;align-items:center}
+    #prevBtn,#nextBtn{width:100%}
+    .navRow button{height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
+    #indexBox{width:100%;height:44px;text-align:center;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:var(--text);padding:0 8px;font-weight:700;letter-spacing:.3px}
+
+    input[type="color"].colorBox{ -webkit-appearance: none; appearance: none; border:1px solid var(--border); border-radius:6px; width:48px; height:28px; padding:0; background:#ffffff; cursor:pointer; }
+    input[type="color"].colorBox::-webkit-color-swatch-wrapper{ padding:0 }
+    input[type="color"].colorBox::-webkit-color-swatch{ border:none; border-radius:6px }
+    #colorsContainer .row{ justify-content: space-between; }
+    #colorsContainer .row label{ flex:1 }
+
+    .button--loading{ position:relative; pointer-events:none; padding-right:36px }
+    .button--loading::after{ content:""; position:absolute; right:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; border-radius:50%; border:2px solid var(--muted); border-top-color:transparent; animation:spin .8s linear infinite }
+    @keyframes spin{ to{ transform:translateY(-50%) rotate(360deg) } }
+
+    .error{ color:var(--danger); font-size:12px; margin-top:6px }
+    .rlLabel{ color:var(--muted); font-size:12px; margin-top:4px }
+
+    /* Small screen optimization */
+    @media (max-width: 900px){
+      .wrap{ grid-template-columns: 1fr; }
+      .panel{ height:auto; max-height: 52vh; }
+      .viewer{ height: 48vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>3D Configurator</h1>
+
+      <div class="group">
+        <h2>Model</h2>
+        <div class="row">
+          <label for="typeSelect">Type</label>
+          <select id="typeSelect"></select>
+        </div>
+        <div class="row">
+          <label for="modelSelect">Model</label>
+          <select id="modelSelect"></select>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Describe your design…</h2>
+        <div class="row" style="display:block">
+          <textarea id="prompt" rows="5" placeholder="Describe your ideal design in natural language (e.g., minimal geometric pattern in navy and white, subtle fabric texture)…"></textarea>
+        </div>
+        <div class="row">
+          <button id="genBtn">Generate</button>
+        </div>
+        <div class="row navRow">
+          <button id="prevBtn" disabled>←</button>
+          <input id="indexBox" type="text" value="0 / 0" readonly />
+          <button id="nextBtn" disabled>→</button>
+        </div>
+        <div class="row">
+          <button id="dlBtn" disabled>Download</button>
+        </div>
+        <!-- Interactive limit -->
+        <div id="rlStatus" class="rlLabel">Checking limit…</div>
+
+        <div id="errorBox" class="error" style="display:none"></div>
+        <div class="hint">History is per model. Reopening the site resumes on your latest design for the selected model.</div>
+      </div>
+
+      <div class="group" id="colorsGroup" style="display:none">
+        <h2>Colors</h2>
+        <div id="colorsContainer"></div>
+        <div class="hint">Picking a color clears texture on that material.</div>
+      </div>
+    </div>
+
+    <div class="viewer">
+      <iframe id="api-frame" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    // ====== CONFIG ======
+    const API_BASE       = 'https://google.faster-551.workers.dev'; // backend
+    const PREPROMPT      = 'Create Image texture, keep 1:1 shape and size. each parts design should be self contained, keep in mind that the final product will not be as clear as the 2d reppresentation. User design request: ';
+
+    const CATALOG = {
+      'Jackets': [
+        {
+          id: 'VP9655', name: 'VP9655', uid: 'eea360f7606149deaf75345b1df3f519',
+          designMat: 'Giacca1_FRONT_2563',
+          baseImage: 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png',
+          colors: [ { label: 'Contrast', material: 'Contrasto_FRONT_2545' }, { label: 'Zipper', material: 'Zipper__Velcro_FRONT_2559' } ]
+        }
+      ],
+      'Race suits': [],
+      'Ski pants': [],
+      'Vests': []
+    };
+
+    // ====== STATE ======
+    let api = null;
+    let currentModel = null;
+    let materialsByName = new Map();
+    let currentIndex = 0;
+
+    // In-tab cache: id -> dataURL
+    const sessionImages = new Map();
+
+    // Server history (newest-first)
+    let serverHistory = [];
+
+    // DOM
+    let iframe   = document.getElementById('api-frame');
+    const typeSel  = document.getElementById('typeSelect');
+    const modelSel = document.getElementById('modelSelect');
+
+    const promptEl = document.getElementById('prompt');
+    const genBtn   = document.getElementById('genBtn');
+    const prevBtn  = document.getElementById('prevBtn');
+    const nextBtn  = document.getElementById('nextBtn');
+    const dlBtn    = document.getElementById('dlBtn');
+    const indexBox = document.getElementById('indexBox');
+    const errorBox = document.getElementById('errorBox');
+    const colorsGroup = document.getElementById('colorsGroup');
+    const colorsContainer = document.getElementById('colorsContainer');
+    const rlStatus = document.getElementById('rlStatus');
+
+    // ====== UTIL ======
+    const norm = s => (s||'').trim().toLowerCase();
+
+    function baseColorChannel(mat){
+      const ch = mat.channels||{};
+      return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR';
+    }
+    function hexToRGBNorm(hex){ const h = hex.replace('#',''); const i = parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
+    function rgbNormToHex(arr){ const toHex = v => ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); return `#${toHex(arr[0]||0)}${toHex(arr[1]||0)}${toHex(arr[2]||0)}`; }
+    function findMaterial(name){
+      if(!name) return null;
+      const exact = materialsByName.get(name); if (exact) return exact;
+      const lname = norm(name);
+      for(const [k,v] of materialsByName){ if(norm(k)===lname) return v; }
+      for(const [k,v] of materialsByName){ if(norm(k).includes(lname)) return v; }
+      return null;
+    }
+
+    function showError(msg){ if(!errorBox) return; errorBox.textContent = msg; errorBox.style.display = 'block'; }
+    function clearError(){ if(!errorBox) return; errorBox.textContent = ''; errorBox.style.display = 'none'; }
+
+    function getUserId(){
+      const KEY='vd_user';
+      let id = localStorage.getItem(KEY);
+      if(!id){ id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2); localStorage.setItem(KEY, id); }
+      return id;
+    }
+
+    // ====== HISTORY (session storage, per model UID) ======
+    function histKey(){ return currentModel ? `vd_hist_${currentModel.uid}` : 'vd_hist_none'; }
+    function loadHistory(){
+      try{ const s = sessionStorage.getItem(histKey()); return s ? JSON.parse(s) : []; }catch(e){ return []; }
+    }
+    function saveHistory(arr){
+      try{ sessionStorage.setItem(histKey(), JSON.stringify(arr||[])); }catch(e){}
+    }
+
+    function updateIndexFromArr(arr){
+      const total = arr.length;
+      currentIndex = total ? total : 0;
+      indexBox.value = `${currentIndex} / ${total}`;
+      prevBtn.disabled = total <= 1 || currentIndex <= 1;
+      nextBtn.disabled = total === 0 || currentIndex >= total;
+      dlBtn.disabled = total === 0;
+    }
+
+    // Build local list from server newest-first (serverHistory) -> oldest-first array with seq for indexing by ← →
+    function syncLocalHistoryWithServer(){
+      if (!Array.isArray(serverHistory) || !serverHistory.length){
+        saveHistory([]); updateIndexFromArr([]); return;
+      }
+      const copy = serverHistory.slice().reverse(); // oldest -> newest
+      const arr = copy.map((s, i) => ({
+        id: crypto.randomUUID(),
+        n: i + 1,
+        prompt: s.prompt || '',
+        createdAt: s.created_at || Date.now(),
+        seq: s.seq
+      }));
+      saveHistory(arr);
+      updateIndexFromArr(arr);
+    }
+
+    // Apply by 1-based index
+    function applyHistoryIndex(n){
+      const arr = loadHistory();
+      if (!arr.length) { hydrateLatest(); return; }
+      const idx = Math.max(1, Math.min(n, arr.length));
+      const item = arr[idx - 1];
+      if (!item) return;
+
+      promptEl.value = item.prompt || '';
+
+      const cached = sessionImages.get(item.id);
+      if (cached){
+        applyTextureFromDataURL(currentModel.designMat, cached);
+        dlBtn.disabled = false;
+      } else if (item.seq){
+        const s = serverHistory.find(x => String(x.seq) === String(item.seq));
+        if (s && s.url){
+          fetchAsDataURL(s.url).then(dataURL => {
+            sessionImages.set(item.id, dataURL);
+            applyTextureFromDataURL(currentModel.designMat, dataURL);
+            dlBtn.disabled = false;
+          }).catch(() => {
+            showError('Design image is not available in this session');
+            dlBtn.disabled = true;
+          });
+        } else {
+          showError('Image not found on server');
+          dlBtn.disabled = true;
+        }
+      } else {
+        showError('This entry has no image in this session');
+        dlBtn.disabled = true;
+      }
+
+      currentIndex = idx;
+      indexBox.value = `${currentIndex} / ${arr.length}`;
+      prevBtn.disabled = currentIndex <= 1;
+      nextBtn.disabled = currentIndex >= arr.length;
+    }
+
+    function hydrateLatest(){
+      const arr = loadHistory();
+      if (arr.length){
+        const item = arr[arr.length - 1];
+        promptEl.value = item.prompt || '';
+        const cached = sessionImages.get(item.id);
+        if (cached){
+          applyTextureFromDataURL(currentModel.designMat, cached);
+          dlBtn.disabled = false;
+        } else if (item.seq){
+          const s = serverHistory.find(x => String(x.seq) === String(item.seq));
+          if (s && s.url){
+            fetchAsDataURL(s.url).then(dataURL => {
+              sessionImages.set(item.id, dataURL);
+              applyTextureFromDataURL(currentModel.designMat, dataURL);
+              dlBtn.disabled = false;
+            }).catch(()=>{ dlBtn.disabled = true; });
+          }
+        } else {
+          dlBtn.disabled = true;
+        }
+        currentIndex = arr.length;
+        indexBox.value = `${currentIndex} / ${arr.length}`;
+        prevBtn.disabled = arr.length <= 1;
+        nextBtn.disabled = true;
+      } else {
+        currentIndex = 0;
+        indexBox.value = `0 / 0`;
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        dlBtn.disabled = true;
+      }
+    }
+
+    function pushHistoryItem(prompt, dataURL, seq){
+      const arr = loadHistory();
+      const item = { id: crypto.randomUUID(), n: arr.length + 1, prompt, createdAt: Date.now() };
+      if (seq != null) item.seq = seq;
+      sessionImages.set(item.id, dataURL);
+      arr.push(item);
+      saveHistory(arr);
+      updateIndexFromArr(arr);
+      return item;
+    }
+
+    // ====== SERVER HISTORY ======
+    async function loadServerHistory(){
+      try{
+        const u = new URL(`${API_BASE}/api/my-images`);
+        u.searchParams.set('user_id', getUserId());
+        if (currentModel?.id) u.searchParams.set('model_id', currentModel.id);
+        const r = await fetch(u.toString(), { cache:'no-store' });
+        if (!r.ok) throw new Error('history fetch failed');
+        const j = await r.json();
+        serverHistory = Array.isArray(j.data) ? j.data : [];
+        return serverHistory;
+      }catch(e){
+        console.warn('server history error', e);
+        serverHistory = [];
+        return [];
+      }
+    }
+
+    async function prefillFromServer(){
+      if (!serverHistory.length) { saveHistory([]); updateIndexFromArr([]); return; }
+      // mirror to local (so nav shows correct count)
+      syncLocalHistoryWithServer();
+      // preview newest image
+      const latest = serverHistory[0];
+      if (latest && latest.url){
+        try{
+          const dataURL = await fetchAsDataURL(latest.url);
+          const arr = loadHistory();
+          if (arr.length){
+            const last = arr[arr.length - 1];
+            sessionImages.set(last.id, dataURL); // cache to current entry
+            await applyTextureFromDataURL(currentModel.designMat, dataURL);
+            promptEl.value = (latest.prompt || '').trim();
+            currentIndex = arr.length;
+            indexBox.value = `${currentIndex} / ${arr.length}`;
+            prevBtn.disabled = arr.length <= 1;
+            nextBtn.disabled = true;
+            dlBtn.disabled = false;
+          }
+        }catch(e){ console.warn('prefillFromServer failed', e); }
+      }
+    }
+
+    // ====== RL (soft UX) ======
+    const RL_LIMIT = 500;
+    const RL_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const RL_KEY = 'vd_rl_v1';
+
+    function loadRL(){
+      try{
+        const raw = localStorage.getItem(RL_KEY);
+        if (raw) return JSON.parse(raw);
+      }catch(e){}
+      const now = Date.now();
+      const st = { used: 0, resetAt: now + RL_WINDOW_MS };
+      try{ localStorage.setItem(RL_KEY, JSON.stringify(st)); }catch(e){}
+      return st;
+    }
+    function saveRL(st){ try{ localStorage.setItem(RL_KEY, JSON.stringify(st)); }catch(e){} }
+    function humanTime(ms){ const d = new Date(ms); return d.toLocaleString(); }
+
+    function updateRLStatus(){
+      const st = loadRL();
+      const now = Date.now();
+      if (now > st.resetAt){
+        st.used = 0; st.resetAt = now + RL_WINDOW_MS; saveRL(st);
+      }
+      const left = Math.max(0, RL_LIMIT - st.used);
+      rlStatus.textContent = `Generations left: ${left} / 24h (resets ${humanTime(st.resetAt)})`;
+      genBtn.disabled = left <= 0;
+    }
+    function spendCredit(){
+      const st = loadRL();
+      const now = Date.now();
+      if (now > st.resetAt){ st.used = 0; st.resetAt = now + RL_WINDOW_MS; }
+      if (st.used >= RL_LIMIT) return false;
+      st.used++; saveRL(st); updateRLStatus(); return true;
+    }
+    function refundCredit(){
+      const st = loadRL();
+      if (st.used > 0){ st.used--; saveRL(st); updateRLStatus(); }
+    }
+
+    // ====== SELECTORS ======
+    function initSelectors(){
+      typeSel.innerHTML = Object.keys(CATALOG).map(t=>`<option value="${t}">${t}</option>`).join('');
+      typeSel.value = 'Jackets';
+      populateModels();
+      typeSel.addEventListener('change', populateModels);
+      modelSel.addEventListener('change', ()=> switchModel(modelSel.value));
+    }
+
+    function populateModels(){
+      const t = typeSel.value;
+      const list = CATALOG[t] || [];
+      modelSel.innerHTML = list.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+      if(list.length){
+        switchModel(list[0].id);
+      } else {
+        currentModel = null;
+        colorsGroup.style.display='none';
+        indexBox.value = '0 / 0'; prevBtn.disabled = true; nextBtn.disabled = true; dlBtn.disabled = true;
+        if (iframe) iframe.src = 'about:blank';
+        materialsByName = new Map(); api = null;
+      }
+    }
+
+    function modelById(id){
+      const t = typeSel.value;
+      const list = CATALOG[t]||[];
+      return list.find(m=>m.id===id)||null;
+    }
+
+    function switchModel(modelId){
+      const m = modelById(modelId);
+      if(!m) return;
+      currentModel = m;
+      renderColors();
+      initViewerForModel(m.uid);
+      // Load server history for this model and prefill
+      loadServerHistory().then(()=>{
+        syncLocalHistoryWithServer();
+        prefillFromServer();
+      });
+    }
+
+    function renderColors(){
+      colorsContainer.innerHTML = '';
+      const cols = (currentModel && currentModel.colors) || [];
+      if(!cols.length){ colorsGroup.style.display='none'; return; }
+      colorsGroup.style.display='block';
+      cols.forEach((c, i)=>{
+        const row = document.createElement('div'); row.className = 'row';
+        const lab = document.createElement('label'); lab.textContent = c.label || `Color ${i+1}`; row.appendChild(lab);
+        const inp = document.createElement('input'); inp.type='color'; inp.className='colorBox'; inp.value = '#ffffff'; inp.dataset.material = c.material; row.appendChild(inp);
+        colorsContainer.appendChild(row);
+        inp.addEventListener('input', ()=> applyColor(c.material, inp.value));
+        inp.addEventListener('change', ()=> { applyColor(c.material, inp.value); try{ inp.blur(); }catch(e){} });
+      });
+    }
+
+    // ====== VIEWER ======
+    function initViewerForModel(uid){
+      const parent = iframe ? iframe.parentNode : null;
+      const newIframe = iframe ? iframe.cloneNode() : document.createElement('iframe');
+      if(parent){ parent.replaceChild(newIframe, iframe); }
+      iframe = newIframe;
+      window.requestAnimationFrame(()=>{
+        materialsByName = new Map(); api = null;
+        const client = new Sketchfab('1.12.1', newIframe);
+        client.init(uid, {
+          autostart: 1, preload: 1, dnt: 1, camera: 0, transparent: 1, ui_controls: 1,
+          ui_infos: 0, ui_help: 0, ui_settings: 0, ui_inspector: 0, ui_ar: 0, ui_vr: 0, ui_annotations: 0, ui_animations: 0, ui_stop: 0,
+          ui_watermark: 0, ui_watermark_link: 0,
+          success: function(apiHandle){
+            api = apiHandle; api.start();
+            api.addEventListener('viewerready', function(){
+              if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); }
+              api.getMaterialList(function(err, mats){
+                if(err){ console.warn('getMaterialList error', err); return; }
+                materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m));
+                // initialize color inputs from current materials
+                Array.from(colorsContainer.querySelectorAll('input[type="color"]')).forEach(inp=>{
+                  const mat = findMaterial(inp.dataset.material);
+                  if(mat){ const ch= (mat.channels||{})[baseColorChannel(mat)]||{}; if(Array.isArray(ch.color)){ inp.value = rgbNormToHex(ch.color); } }
+                });
+                hydrateLatest();
+              });
+            });
+          },
+          error: function(){ console.error('Sketchfab init failed'); }
+        });
+      });
+    }
+
+    function applyColor(matName, hex){
+      const mat = findMaterial(matName);
+      if(!api || !mat) return;
+      const channel = baseColorChannel(mat);
+      const rgb = hexToRGBNorm(hex);
+      mat.channels = Object.assign({}, mat.channels);
+      const ch = Object.assign({}, mat.channels[channel]||{});
+      ch.enable = true; ch.factor = ch.factor ?? 1; ch.color = rgb;
+      if('texture' in ch) delete ch.texture;
+      mat.channels[channel] = ch;
+      api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); });
+    }
+
+    async function fetchAsDataURL(url){
+      const r = await fetch(url,{cache:'no-store'});
+      if(!r.ok) throw new Error('Failed to load image');
+      const b = await r.blob();
+      return await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(b); });
+    }
+
+    async function applyTextureFromDataURL(matName, dataURL){
+      const mat = findMaterial(matName);
+      if(!api || !mat) throw new Error('Material not available');
+      return new Promise((resolve,reject)=>{
+        api.addTexture(dataURL, function(err, texUid){
+          if(err){ reject(err); return; }
+          const chName = baseColorChannel(mat);
+          mat.channels = Object.assign({}, mat.channels);
+          const ch = Object.assign({}, mat.channels[chName]||{});
+          ch.enable=true; ch.factor=ch.factor??1; ch.texture={uid:texUid}; ch.color=[1,1,1];
+          mat.channels[chName]=ch;
+          api.setMaterial(mat, function(e){ if(e) reject(e); else resolve(); });
+        });
+      });
+    }
+
+    // ====== GENERATION ======
+    async function doGenerate(){
+      const userPrompt = (promptEl.value||'').trim();
+      if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; }
+
+      updateRLStatus();
+      if (!spendCredit()){ showError('Daily limit reached'); return; }
+
+      const modelPre = (currentModel && currentModel.preprompt) || PREPROMPT;
+      const finalPrompt = modelPre ? `${modelPre}\n\n${userPrompt}` : userPrompt;
+
+      clearError();
+      const prevText = genBtn.textContent;
+      genBtn.textContent = 'Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true');
+      genBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true;
+
+      try{
+        const j = await tryStartGeneration(finalPrompt);
+        const dataURL = j.dataUrl ? j.dataUrl : await fetchAsDataURL(j.url);
+        await applyTextureFromDataURL(currentModel.designMat, dataURL);
+        pushHistoryItem(userPrompt, dataURL, j.seq ?? null);
+
+        // refresh server history & UI numbers to match backend
+        await loadServerHistory();
+        syncLocalHistoryWithServer();
+        applyHistoryIndex(loadHistory().length); // jump to newest
+
+      } catch(e){
+        console.error(e);
+        showError((e && e.message) ? e.message : 'Error');
+        refundCredit();
+      } finally {
+        genBtn.textContent = prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy');
+        updateRLStatus();
+        genBtn.disabled = false;
+      }
+    }
+
+    async function tryStartGeneration(prompt){
+      const baseUrl = (currentModel && currentModel.baseImage) || '';
+      if(!baseUrl) throw new Error('No base image configured for this model');
+      const baseResp = await fetch(baseUrl, { cache:'no-store' });
+      if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`);
+      const baseBlob = await baseResp.blob();
+
+      const fd = new FormData();
+      fd.append('prompt', prompt);
+      fd.append('size', '1024x1024');
+      fd.append('user_id', getUserId());
+      fd.append('model_id', currentModel?.id || '');
+      fd.append('image', baseBlob, 'base.png');
+
+      const primary = await fetch(`${API_BASE}/api/generate`, { method:'POST', body: fd });
+      if (primary.status === 404) {
+        const legacy = await fetch(`${API_BASE}/api/generate-gemini`, { method:'POST', body: fd });
+        if(!legacy.ok){ let t=''; try{t=await legacy.text();}catch(e){} throw new Error(`${legacy.status} ${legacy.statusText} ${t}`.trim()); }
+        const data = await legacy.json();
+        const b64 = data?.data?.[0]?.b64_json;
+        if(!b64) throw new Error('Backend OK but returned no image data');
+        return { dataUrl: `data:image/png;base64,${b64}`, seq: null };
+      }
+
+      if(!primary.ok){
+        if (primary.status === 429) throw new Error('Rate limit exceeded');
+        let t=''; try{t=await primary.text();}catch(e){}
+        throw new Error(`${primary.status} ${primary.statusText} ${t}`.trim());
+      }
+
+      const out = await primary.json();
+      const first = out?.data?.[0];
+      if(!first?.url) throw new Error('Generate succeeded but no URL returned');
+      return { url: first.url, seq: first.seq };
+    }
+
+    // ====== EVENTS ======
+    genBtn.addEventListener('click', doGenerate);
+    prevBtn.addEventListener('click', ()=>{
+      const arr = loadHistory(); if(arr.length>1){ const target = Math.max(1, (currentIndex||arr.length) - 1); applyHistoryIndex(target); }
+    });
+    nextBtn.addEventListener('click', ()=>{
+      const arr = loadHistory(); if(arr.length>1){ const target = Math.min(arr.length, (currentIndex||1) + 1); applyHistoryIndex(target); }
+    });
+    dlBtn.addEventListener('click', ()=>{
+      const arr=loadHistory(); if(!arr.length) return;
+      const curr = Math.max(1, parseInt(indexBox.value.split('/')[0])||arr.length);
+      const item = arr[curr-1];
+      const dataURL = sessionImages.get(item.id);
+      if(!dataURL){ showError('Nothing to download for this design in this session'); return; }
+      const a = document.createElement('a'); const name = `${currentModel?.id||'model'}_design_${item.n}.png`;
+      a.href = dataURL; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    document.addEventListener('change', function(e){
+      const t = e.target; if (t && t.matches && t.matches('input.colorBox[type="color"]')) { try{ t.blur(); }catch(e){} }
+    });
+
+    // ====== BOOT ======
+    updateRLStatus();
+    initSelectors();
+  </script>
+</body>
+</html>
