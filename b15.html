@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketchfab 3D Configurator — Final Prototype v13.3</title>
+  <style>
+    :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444; --danger:#ef4444; --ok:#22c55e }
+    *{box-sizing:border-box}
+    html,body{height:100%; overflow:hidden}
+    body{margin:0;background:
+      radial-gradient(1200px 800px at 15% -10%, rgba(96,165,250,.12), transparent),
+      radial-gradient(1200px 800px at 110% 110%, rgba(125,211,252,.10), transparent),
+      var(--bg);color:var(--text);font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial}
+    .wrap{display:grid;grid-template-columns:360px 1fr;gap:12px;height:100vh}
+    .panel{height:100vh;overflow-y:auto;padding:20px 16px 24px;background:linear-gradient(180deg,var(--panel),var(--panel-2));border-left:1px solid var(--border)}
+    .panel h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
+    .group{border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;background:#0b1326}
+    .group h2{font-size:13px;color:var(--muted);margin:0 0 10px;font-weight:600;letter-spacing:.2px}
+    .row{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}
+    label{min-width:92px;color:var(--muted)}
+    select, input[type="text"], textarea{width:100%}
+    textarea#prompt{width:100%;display:block;resize:none;min-height:100px;border:1px solid var(--border);border-radius:12px;background:#0a1222;color:#e8ecf6;padding:12px;outline:none;overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
+    textarea#prompt::-webkit-scrollbar{width:0;height:0}
+    button{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:#e8ecf6;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .hint{color:var(--muted);font-size:12px;margin-top:6px}
+    .viewer{height:100vh}
+    iframe{width:100%;height:100%;border:0;border-left:1px solid var(--border);background:transparent}
+    select{appearance:none;-webkit-appearance:none;background:#0a1222;border:1px solid var(--border);border-radius:10px;color:#e8ecf6;padding:10px 36px 10px 12px;line-height:1.2;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6" fill="none" stroke="%239aa5b3" stroke-width="2"/></svg>');background-repeat:no-repeat;background-position:right 10px center}
+    select:focus{outline:none;box-shadow:0 0 0 2px rgba(125,211,252,.35);border-color:var(--accent)}
+    #genBtn,#dlBtn{display:block;width:100%}
+    .navRow{display:grid;grid-template-columns:1fr 140px 1fr;gap:8px;align-items:center}
+    #prevBtn,#nextBtn{width:100%}
+    .navRow button{height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
+    #indexBox{width:100%;height:44px;text-align:center;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:#e8ecf6;padding:0 8px;font-weight:700;letter-spacing:.3px}
+    input[type="color"].colorBox{ -webkit-appearance: none; appearance: none; border:1px solid var(--border); border-radius:6px; width:48px; height:28px; padding:0; background:#ffffff; cursor:pointer; }
+    input[type="color"].colorBox::-webkit-color-swatch-wrapper{ padding:0 }
+    input[type="color"].colorBox::-webkit-color-swatch{ border:none; border-radius:6px }
+    #colorsContainer .row{ justify-content: space-between; }
+    #colorsContainer .row label{ flex:1 }
+    .button--loading{ position:relative; pointer-events:none; padding-right:36px }
+    .button--loading::after{ content:""; position:absolute; right:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; border-radius:50%; border:2px solid var(--muted); border-top-color:transparent; animation:spin .8s linear infinite }
+    @keyframes spin{ to{ transform:translateY(-50%) rotate(360deg) } }
+    .error{ color:var(--danger); font-size:12px; margin-top:6px }
+    .rl{ color:var(--muted); font-size:12px; margin-top:6px }
+    .rl.ok{ color:var(--ok) }
+    .rl.bad{ color:var(--danger) }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>3D Configurator</h1>
+
+      <div class="group">
+        <h2>Model</h2>
+        <div class="row">
+          <label for="typeSelect">Type</label>
+          <select id="typeSelect"></select>
+        </div>
+        <div class="row">
+          <label for="modelSelect">Model</label>
+          <select id="modelSelect"></select>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>Describe your design…</h2>
+        <div class="row" style="display:block">
+          <textarea id="prompt" rows="5" placeholder="Describe your ideal design (e.g., minimal geometric pattern in navy and white)…"></textarea>
+        </div>
+        <div class="row">
+          <button id="genBtn">Generate</button>
+        </div>
+        <div class="row navRow">
+          <button id="prevBtn" disabled>←</button>
+          <input id="indexBox" type="text" value="0 / 0" readonly />
+          <button id="nextBtn" disabled>→</button>
+        </div>
+        <div class="row">
+          <button id="dlBtn" disabled>Download</button>
+        </div>
+        <div id="rlStatus" class="rl">Checking rate limit…</div>
+
+        <div id="errorBox" class="error" style="display:none"></div>
+        <div class="hint">History is per model. Reopening the site resumes on your latest design for the selected model.</div>
+      </div>
+
+      <div class="group" id="colorsGroup" style="display:none">
+        <h2>Colors</h2>
+        <div id="colorsContainer"></div>
+        <div class="hint">Picking a color clears texture on that material.</div>
+      </div>
+    </div>
+
+    <div class="viewer">
+      <iframe id="api-frame" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share src="about:blank"></iframe>
+    </div>
+  </div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    // ====== CONFIG (same backend contract as the working app) ======
+    const API_BASE = 'https://google2.faster-551.workers.dev';   // << your worker base
+    const ENDPOINTS = {
+      GENERATE: API_BASE + '/api/generate',
+      LEGACY:   API_BASE + '/api/generate-gemini',
+      MY_IMAGES:API_BASE + '/api/my-images'
+    };
+    const AI_IMAGE_MODEL_ID = 'gemini-2.5-flash-image-preview';
+
+    const BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
+    const PREPROMPT = 'Create Image texture, keep 1:1 shape and size. each parts design should be self contained, keep in mind that the final product will not be as clear as the 2d reppresentation. User design request: ';
+
+    const CATALOG = {
+      'Jackets': [
+        { id:'VP9655', name:'VP9655', uid:'eea360f7606149deaf75345b1df3f519', designMat:'Giacca1_FRONT_2563', baseImage:BASE_IMAGE_URL,
+          colors:[{label:'Contrast',material:'Contrasto_FRONT_2545'},{label:'Zipper',material:'Zipper__Velcro_FRONT_2559'}] }
+      ],
+      'Race suits': [],
+      'Ski pants':  [],
+      'Vests':      []
+    };
+
+    // ====== STATE ======
+    let api = null; let materialsByName = new Map(); let currentModel = null;
+    let currentIndex = 0;
+    // Texture UID cache (url -> uid) for snappy nav
+    const textureUidByUrl = new Map();
+
+    // Session history (per-model), like: { id, n, prompt, createdAt, serverUrl?, dataUrl? }
+    let sessionHistory = [];
+
+    // ====== DOM ======
+    let iframe = document.getElementById('api-frame');
+    const typeSel  = document.getElementById('typeSelect');
+    const modelSel = document.getElementById('modelSelect');
+    const promptEl = document.getElementById('prompt');
+    const genBtn   = document.getElementById('genBtn');
+    const prevBtn  = document.getElementById('prevBtn');
+    const nextBtn  = document.getElementById('nextBtn');
+    const dlBtn    = document.getElementById('dlBtn');
+    const indexBox = document.getElementById('indexBox');
+    const errorBox = document.getElementById('errorBox');
+    const rlStatus = document.getElementById('rlStatus');
+
+    // ====== UTIL ======
+    const norm = s => (s||'').trim().toLowerCase();
+    function baseColorChannel(mat){ const ch=mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
+    function hexToRGBNorm(hex){ const h=hex.replace('#',''); const i=parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
+    function rgbNormToHex(a){ const H=v=>('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); return `#${H(a[0]||0)}${H(a[1]||0)}${H(a[2]||0)}`; }
+    function findMaterial(name){ if(!name) return null; const e=materialsByName.get(name); if(e) return e; const ln=norm(name); for(const [k,v] of materialsByName){ if(norm(k)===ln) return v; } for(const [k,v] of materialsByName){ if(norm(k).includes(ln)) return v; } return null; }
+
+    // ====== USER + RL (same UX as working app) ======
+    const USER_KEY='vitalini_uid_v1'; const RL_KEY='vitalini_rl_v1'; const RL_LIMIT=500; const RL_WINDOW_MS=24*60*60*1000;
+    function getUserId(){ let id=localStorage.getItem(USER_KEY); if(!id){ id=crypto.randomUUID(); localStorage.setItem(USER_KEY,id);} return id; }
+    function loadRL(){ try{ const raw=localStorage.getItem(RL_KEY); if(raw) return JSON.parse(raw);}catch{} const now=Date.now(); const st={used:0,resetAt:now+RL_WINDOW_MS}; localStorage.setItem(RL_KEY, JSON.stringify(st)); return st; }
+    function saveRL(st){ localStorage.setItem(RL_KEY, JSON.stringify(st)); }
+    function formatReset(ts){ const d=new Date(ts); const dd=String(d.getDate()).padStart(2,'0'); const mm=String(d.getMonth()+1).padStart(2,'0'); const yyyy=d.getFullYear(); const hh=String(d.getHours()).padStart(2,'0'); const mi=String(d.getMinutes()).padStart(2,'0'); return `${dd}/${mm}/${yyyy}, ${hh}:${mi}`; }
+    function updateRLStatus(){ const st=loadRL(); const now=Date.now(); if(now>st.resetAt){ st.used=0; st.resetAt=now+RL_WINDOW_MS; saveRL(st);} const left=Math.max(0, RL_LIMIT-st.used); rlStatus.textContent=`You have ${left}/${RL_LIMIT} generations left (resets ${formatReset(st.resetAt)})`; rlStatus.className='rl ' + (left>0?'ok':'bad'); genBtn.disabled = left<=0; }
+    function spendCredit(){ const st=loadRL(); const now=Date.now(); if(now>st.resetAt){ st.used=0; st.resetAt=now+RL_WINDOW_MS; } if(st.used>=RL_LIMIT){ saveRL(st); updateRLStatus(); return false; } st.used++; saveRL(st); updateRLStatus(); return true; }
+    function refundCredit(){ const st=loadRL(); if(st.used>0){ st.used--; saveRL(st); updateRLStatus(); } }
+
+    // ====== STORAGE (exact architecture) ======
+    const GALLERY_KEY = 'vitalini_gallery_v1';
+    function loadGalleryCache(){ try{ const raw=localStorage.getItem(GALLERY_KEY); if(raw) return JSON.parse(raw);}catch{} return {}; }
+    function saveGalleryCache(map){ localStorage.setItem(GALLERY_KEY, JSON.stringify(map)); }
+    function getUserCache(){ const map=loadGalleryCache(); const uid=getUserId(); return map[uid] || { lastSeq:0, items:[] }; }
+    function setUserCache(data){ const map=loadGalleryCache(); map[getUserId()] = data; saveGalleryCache(map); }
+    function mergeServerImages(serverItems){
+      const cache=getUserCache();
+      const byUrl=new Map(cache.items.map(i=>[i.url,i]));
+      for(const it of serverItems){
+        byUrl.set(it.url, { url:it.url, seq:it.seq, created_at:it.created_at||Date.now() });
+      }
+      const merged = Array.from(byUrl.values()).sort((a,b)=> (b.seq||0)-(a.seq||0)); // newest first
+      const lastSeq = merged.reduce((m,i)=> Math.max(m, i.seq||0), 0);
+      setUserCache({ lastSeq, items: merged });
+      return { lastSeq, items: merged };
+    }
+    async function fetchMyImages(){
+      try{
+        const u=new URL(ENDPOINTS.MY_IMAGES); u.searchParams.set('user_id', getUserId());
+        const r=await fetch(u.toString(), { cache:'no-store' });
+        if(!r.ok) return [];
+        const j=await r.json(); return Array.isArray(j.data)? j.data: [];
+      }catch{ return []; }
+    }
+
+    // Build session history from cache (oldest→newest, numbered 1..N), no network
+    function rebuildHistoryFromCache(){
+      const cache=getUserCache();
+      const rows = (cache.items||[]).slice().sort((a,b)=> (a.seq - b.seq)); // oldest first for 1..N
+      sessionHistory = rows.map((r,i)=> ({ id:crypto.randomUUID(), n:i+1, prompt:'', createdAt:r.created_at, serverUrl:r.url }));
+      updateIndexUI();
+      hydrateLatest();
+    }
+
+    // ====== SELECTORS ======
+    function initSelectors(){
+      typeSel.innerHTML = Object.keys(CATALOG).map(t=>`<option value="${t}">${t}</option>`).join('');
+      typeSel.value = 'Jackets';
+      populateModels();
+      typeSel.addEventListener('change', populateModels);
+      modelSel.addEventListener('change', () => switchModel(modelSel.value));
+    }
+    function populateModels(){
+      const t=typeSel.value; const list=CATALOG[t]||[];
+      modelSel.innerHTML = list.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+      if(list.length) switchModel(list[0].id); else resetViewerState();
+    }
+    function modelById(id){ const t=typeSel.value; const list=CATALOG[t]||[]; return list.find(m=>m.id===id)||null; }
+    function resetViewerState(){
+      currentModel=null; document.getElementById('colorsGroup').style.display='none';
+      indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true;
+      if(iframe) iframe.src='about:blank'; materialsByName=new Map(); api=null; sessionHistory=[];
+    }
+
+    async function switchModel(modelId){
+      const m=modelById(modelId); if(!m) return;
+      currentModel=m; renderColors(); initViewerForModel(m.uid);
+      // Load server images and rebuild history exactly like the other app
+      const rows = await fetchMyImages();
+      mergeServerImages(rows); // update local cache (server is canonical)
+      rebuildHistoryFromCache();
+    }
+
+    function renderColors(){
+      const colorsContainer=document.getElementById('colorsContainer');
+      colorsContainer.innerHTML=''; const cols=(currentModel && currentModel.colors)||[];
+      if(!cols.length){ document.getElementById('colorsGroup').style.display='none'; try{ if(document.activeElement?.type==='color'){ document.activeElement.blur(); } }catch{} return; }
+      document.getElementById('colorsGroup').style.display='block';
+      cols.forEach((c,i)=>{
+        const row=document.createElement('div'); row.className='row';
+        const lab=document.createElement('label'); lab.textContent=c.label||`Color ${i+1}`; row.appendChild(lab);
+        const inp=document.createElement('input'); inp.type='color'; inp.className='colorBox'; inp.value='#ffffff'; inp.dataset.material=c.material; row.appendChild(inp);
+        colorsContainer.appendChild(row);
+        inp.addEventListener('input', ()=> applyColor(c.material, inp.value));
+        inp.addEventListener('change', ()=>{ applyColor(c.material, inp.value); try{ inp.blur(); }catch{} });
+      });
+    }
+
+    // ====== VIEWER ======
+    function initViewerForModel(uid){
+      const parent = iframe ? iframe.parentNode : null;
+      const newIframe = iframe ? iframe.cloneNode() : document.createElement('iframe');
+      if(parent){ parent.replaceChild(newIframe, iframe); }
+      iframe = newIframe; window.requestAnimationFrame(()=>{
+        materialsByName = new Map(); api = null; textureUidByUrl.clear();
+        const client = new Sketchfab('1.12.1', newIframe);
+        client.init(uid, {
+          autostart:1, preload:1, dnt:1, camera:0, transparent:1, ui_controls:1,
+          ui_infos:0, ui_help:0, ui_settings:0, ui_inspector:0, ui_ar:0, ui_vr:0, ui_annotations:0, ui_animations:0, ui_stop:0,
+          ui_watermark:0, ui_watermark_link:0,
+          success: function(apiHandle){
+            api = apiHandle; api.start();
+            api.addEventListener('viewerready', function(){
+              if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); }
+              api.getMaterialList(function(err, mats){
+                if(err){ console.warn('getMaterialList error', err); return; }
+                materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m));
+                // init color inputs to match model
+                Array.from(document.querySelectorAll('#colorsContainer input[type="color"]')).forEach(inp=>{
+                  const mat=findMaterial(inp.dataset.material); if(!mat) return;
+                  const ch=(mat.channels||{})[baseColorChannel(mat)]||{}; if(Array.isArray(ch.color)){ inp.value = rgbNormToHex(ch.color); }
+                });
+                // Pre-warm a few textures (newest 6) for faster nav
+                const cache = getUserCache().items.slice(0,6);
+                cache.forEach(it=> ensureTextureUid(it.url).catch(()=>{}));
+                // If we already have a history, show latest
+                hydrateLatest();
+              });
+            });
+          },
+          error: function(){ console.error('Sketchfab init failed'); }
+        });
+      });
+    }
+
+    // ====== MATERIAL OPS ======
+    function applyColor(matName, hex){
+      const mat=findMaterial(matName); if(!api||!mat) return;
+      const chName=baseColorChannel(mat); const rgb=hexToRGBNorm(hex);
+      mat.channels = {...(mat.channels||{})};
+      const ch = {...(mat.channels[chName]||{})};
+      ch.enable=true; ch.factor=ch.factor??1; ch.color=rgb; if('texture' in ch) delete ch.texture;
+      mat.channels[chName]=ch; api.setMaterial(mat, (e)=>{ if(e) console.warn('setMaterial color error', e); });
+    }
+
+    function setMaterialTextureUid(matName, uid){
+      const mat=findMaterial(matName); if(!api||!mat) return Promise.reject(new Error('Material not available'));
+      return new Promise((resolve,reject)=>{
+        const chName=baseColorChannel(mat);
+        mat.channels = {...(mat.channels||{})};
+        const ch = {...(mat.channels[chName]||{})};
+        ch.enable=true; ch.factor=ch.factor??1; ch.texture={uid}; ch.color=[1,1,1];
+        mat.channels[chName]=ch;
+        api.setMaterial(mat, e=> e?reject(e):resolve());
+      });
+    }
+
+    function ensureTextureUid(url){
+      if(textureUidByUrl.has(url)) return Promise.resolve(textureUidByUrl.get(url));
+      return new Promise((resolve,reject)=>{
+        api.addTexture(url, (err, uid)=>{
+          if(err){ reject(err); return; }
+          textureUidByUrl.set(url, uid);
+          resolve(uid);
+        });
+      });
+    }
+
+    async function applyTextureURL(url){
+      try{
+        const uid = await ensureTextureUid(url);
+        await setMaterialTextureUid(currentModel.designMat, uid);
+      }catch(e){
+        throw new Error('Texture apply failed for URL: ' + url + ' — ' + (e?.message||e));
+      }
+    }
+
+    // ====== HISTORY UI ======
+    function updateIndexUI(){
+      const total=sessionHistory.length; currentIndex=total;
+      indexBox.value = `${currentIndex} / ${total}`;
+      prevBtn.disabled = total<=1; nextBtn.disabled = true; dlBtn.disabled = total===0;
+    }
+
+    function hydrateLatest(){
+      const arr=sessionHistory;
+      if(!arr.length) { indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; return; }
+      const item = arr[arr.length-1];
+      promptEl.value = item.prompt || '';
+      if(item.serverUrl){ applyTextureURL(item.serverUrl).catch(()=>{}); dlBtn.disabled=false; }
+      else if(item.dataUrl){ // legacy only
+        api.addTexture(item.dataUrl, (err, uid)=>{ if(!err) setMaterialTextureUid(currentModel.designMat, uid); });
+        dlBtn.disabled=false;
+      } else dlBtn.disabled=true;
+      currentIndex = arr.length;
+      indexBox.value = `${currentIndex} / ${arr.length}`;
+      prevBtn.disabled = arr.length<=1; nextBtn.disabled = true;
+    }
+
+    function applyHistoryIndex(n){
+      const arr=sessionHistory; const idx=Math.max(1, Math.min(n, arr.length)); const item=arr[idx-1]; if(!item) return;
+      promptEl.value = item.prompt || '';
+      if(item.serverUrl){ applyTextureURL(item.serverUrl).catch(()=>{}); dlBtn.disabled=false; }
+      else if(item.dataUrl){ api.addTexture(item.dataUrl, (err, uid)=>{ if(!err) setMaterialTextureUid(currentModel.designMat, uid); }); dlBtn.disabled=false; }
+      else dlBtn.disabled=true;
+      currentIndex = idx; indexBox.value=`${currentIndex} / ${arr.length}`;
+      prevBtn.disabled = currentIndex<=1; nextBtn.disabled = currentIndex>=arr.length;
+    }
+
+    function pushHistoryItem(userPrompt, dataUrl, serverUrl){
+      const item = { id:crypto.randomUUID(), n: (sessionHistory.length+1), prompt:userPrompt||'', createdAt:Date.now(), dataUrl: dataUrl||null, serverUrl: serverUrl||null };
+      sessionHistory.push(item);
+      updateIndexUI();
+      return item;
+    }
+
+    // ====== GENERATION ======
+    async function doGenerate(){
+      clearError(); updateRLStatus();
+      if(!spendCredit()){ showError('Daily limit reached'); return; }
+      const userText=(promptEl.value||'').trim();
+      if(!userText){ showError('Enter a prompt first'); refundCredit(); return; }
+
+      const pre = (currentModel && currentModel.preprompt) || PREPROMPT;
+      const finalPrompt = pre ? `${pre}\n\n${userText}` : userText;
+
+      const prevText=genBtn.textContent; genBtn.textContent='Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true');
+      genBtn.disabled=true; prevBtn.disabled=true; nextBtn.disabled=true;
+
+      try{
+        // Base image (same as working app: send as multipart file)
+        const baseUrl = (currentModel && currentModel.baseImage) || BASE_IMAGE_URL;
+        const baseResp = await fetch(baseUrl, { cache:'no-store' });
+        if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`);
+        const baseBlob = await baseResp.blob();
+
+        // Remember lastSeq before generation so we can detect new images
+        const before = getUserCache().lastSeq || 0;
+
+        // Try new persistent endpoint
+        try{
+          const j = await callGenerateNew({ prompt: finalPrompt, baseBlob, modelId: AI_IMAGE_MODEL_ID });
+          // Merge from server (canonical) and rebuild history
+          const rows = await fetchMyImages();
+          const merged = mergeServerImages(rows);
+          rebuildHistoryFromCache();
+
+          // Find newest image(s)
+          const newestSeq = merged.lastSeq;
+          const newOnes = (merged.items||[]).filter(it => (it.seq||0) > before);
+          // Apply latest immediately
+          if(newOnes.length){
+            const latest = newOnes[0]; // newest-first list
+            await applyTextureURL(latest.url);
+          }
+        }catch(err){
+          // Fallback to legacy (no storage)
+          if (String(err).includes('404') || String(err.message)==='FALLBACK'){
+            const j = await callGenerateLegacy({ prompt: finalPrompt, baseBlob });
+            const b64 = j?.data?.[0]?.b64_json;
+            if(!b64) throw new Error('Backend OK but returned no image data');
+            const dataURL = `data:image/png;base64,${b64}`;
+            // apply & store in session only
+            await new Promise((resolve,reject)=> api.addTexture(dataURL, (e,uid)=> e?reject(e):setMaterialTextureUid(currentModel.designMat, uid).then(resolve, reject)));
+            pushHistoryItem(userText, dataURL, null);
+          } else {
+            throw err;
+          }
+        }
+      }catch(e){
+        // show full details
+        showError(e?.message || String(e) || 'Error');
+        refundCredit();
+      }finally{
+        genBtn.textContent=prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy');
+        genBtn.disabled=false; updateIndexUI();
+        updateRLStatus();
+      }
+    }
+
+    async function callGenerateNew({ prompt, baseBlob, modelId }){
+      const fd=new FormData();
+      fd.append('prompt', prompt);
+      fd.append('size', '1024x1024');
+      fd.append('user_id', getUserId());
+      fd.append('model_id', modelId);           // critical
+      fd.append('image', baseBlob, 'base.png');
+
+      const r=await fetch(ENDPOINTS.GENERATE, { method:'POST', body:fd });
+      if(r.status===404) throw new Error('FALLBACK');
+      if(!r.ok){
+        let detail=''; try{ detail=await r.text(); }catch{}
+        throw new Error(`${r.status} ${r.statusText} ${detail}`.trim());
+      }
+      return await r.json(); // {data:[...]}
+    }
+
+    async function callGenerateLegacy({ prompt, baseBlob }){
+      const fd=new FormData();
+      fd.append('prompt', prompt);
+      fd.append('size', '1024x1024');
+      fd.append('user_id', getUserId());
+      fd.append('image', baseBlob, 'base.png');
+      const r=await fetch(ENDPOINTS.LEGACY, { method:'POST', body:fd });
+      if(!r.ok){
+        let detail=''; try{ detail=await r.text(); }catch{}
+        throw new Error(`${r.status} ${r.statusText} ${detail}`.trim());
+      }
+      return await r.json();
+    }
+
+    // ====== ERRORS ======
+    function showError(msg){ errorBox.textContent = String(msg||'Error'); errorBox.style.display='block'; }
+    function clearError(){ errorBox.textContent=''; errorBox.style.display='none'; }
+
+    // ====== NAV & DL ======
+    prevBtn.addEventListener('click', ()=>{ const arr=sessionHistory; if(arr.length>1){ const t=Math.max(1,(currentIndex||arr.length)-1); applyHistoryIndex(t); } });
+    nextBtn.addEventListener('click', ()=>{ const arr=sessionHistory; if(arr.length>1){ const t=Math.min(arr.length,(currentIndex||1)+1); applyHistoryIndex(t); } });
+    dlBtn.addEventListener('click', ()=>{ const arr=sessionHistory; if(!arr.length) return;
+      const curr = Math.max(1, parseInt(indexBox.value.split('/')[0])||arr.length);
+      const item = arr[curr-1];
+      if(item?.dataUrl){ const a=document.createElement('a'); a.href=item.dataUrl; a.download=`${currentModel?.id||'model'}_design_${item.n}.png`; document.body.appendChild(a); a.click(); a.remove(); }
+      else { showError('This design isn’t downloadable in this session (server URL only).'); }
+    });
+
+    // ====== BOOT ======
+    function updateIndexUIInitial(){ indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; }
+    initSelectors(); updateRLStatus(); updateIndexUIInitial();
+    genBtn.addEventListener('click', doGenerate);
+    document.addEventListener('change', (e)=>{ const t=e.target; if(t?.matches?.('input.colorBox[type="color"]')){ try{ t.blur(); }catch{} } });
+  </script>
+</body>
+</html>
