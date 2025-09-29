@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sketchfab 3D Configurator — Final Production v14</title>
+  <title>Sketchfab 3D Configurator — Final Production v14.1</title>
   <style>
     :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444; --danger:#ef4444 }
     *{box-sizing:border-box}
@@ -108,7 +108,7 @@
   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
   <script>
     // ====== CONFIG ======
-    const API_BASE       = 'https://google2.faster-551.workers.dev'; // your Worker base
+    const API_BASE       = 'https://google2.faster-551.workers.dev'; // updated Worker base
     const BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
     const PREPROMPT      = 'Create Image texture, keep 1:1 shape and size. each parts design should be self contained, keep in mind that the final product will not be as clear as the 2d reppresentation. User design request: ';
 
@@ -120,7 +120,10 @@
           baseImage: BASE_IMAGE_URL,
           // optional per-model override
           // preprompt: '... model-specific guidance ...',
-          colors: [ { label: 'Contrast', material: 'Contrasto_FRONT_2545' } ]
+          colors: [
+            { label: 'Contrast', material: 'Contrasto_FRONT_2545' },
+            { label: 'Zipper',   material: 'Zipper__Velcro_FRONT_2559' }
+          ]
         }
       ],
       'Race suits': [ /* none yet */ ],
@@ -187,7 +190,7 @@
     // ====== GENERATION ======
     async function doGenerate(){ const userPrompt = (promptEl.value||'').trim(); if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; } const modelPre = (currentModel && currentModel.preprompt) || PREPROMPT; const finalPrompt = modelPre ? `${modelPre}\n\n${userPrompt}` : userPrompt; clearError(); const prevText = genBtn.textContent; genBtn.textContent = 'Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true'); genBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; try{ const j = await tryStartGeneration(finalPrompt); const dataURL = j.dataUrl ? j.dataUrl : await fetchAsDataURL(j.url||j.imageUrl); await applyTextureFromDataURL(currentModel.designMat, dataURL); const item = pushHistoryItem(userPrompt, dataURL); currentIndex = item.n; } catch(e){ console.error(e); showError((e && e.message) ? e.message : 'Error'); } finally{ genBtn.textContent = prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy'); genBtn.disabled = false; const arr = loadHistory(); prevBtn.disabled = arr.length<=1; nextBtn.disabled = true; dlBtn.disabled = arr.length===0; } }
 
-    async function tryStartGeneration(prompt){ const baseUrl = (currentModel && currentModel.baseImage) || BASE_IMAGE_URL; const baseResp = await fetch(baseUrl, { cache:'no-store' }); if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`); const baseBlob = await baseResp.blob(); const fd = new FormData(); fd.append('prompt', prompt); fd.append('size', '1024x1024'); fd.append('model_id', currentModel?.id || ''); fd.append('user_id', ensureUserId()); fd.append('image', baseBlob, 'base.png'); const resp = await fetch(`${API_BASE}/api/generate`, { method:'POST', body: fd }); if(!resp.ok){ let t=''; try{t=await resp.text();}catch(e){} throw new Error(`${resp.status} ${resp.statusText} ${t}`.trim()); } const j = await resp.json(); const first = j?.data?.[0]; if(first && first.url){ return { id:first.id, url:first.url }; } const b64 = first?.b64_json || j?.data?.[0]?.b64_json; if(b64){ return { dataUrl: `data:image/png;base64,${b64}` }; } throw new Error('Backend OK but returned no image'); }
+    async function tryStartGeneration(prompt){ const baseUrl = (currentModel && currentModel.baseImage) || BASE_IMAGE_URL; const baseResp = await fetch(baseUrl, { cache:'no-store' }); if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`); const baseBlob = await baseResp.blob(); const fd = new FormData(); fd.append('prompt', prompt); fd.append('size', '1024x1024'); fd.append('model_id', 'gemini-2.5-flash-image-preview'); fd.append('user_id', ensureUserId()); fd.append('image', baseBlob, 'base.png'); const resp = await fetch(`${API_BASE}/api/generate`, { method:'POST', body: fd }); if(!resp.ok){ let t=''; try{t=await resp.text();}catch(e){} throw new Error(`${resp.status} ${resp.statusText} ${t}`.trim()); } const j = await resp.json(); const first = j?.data?.[0]; if(first && first.url){ return { id:first.id, url:first.url }; } const b64 = first?.b64_json || j?.data?.[0]?.b64_json; if(b64){ return { dataUrl: `data:image/png;base64,${b64}` }; } throw new Error('Backend OK but returned no image'); }
 
     async function fetchAsDataURL(url){ const r = await fetch(url,{cache:'no-store'}); const b = await r.blob(); return await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(b); }); }
 
