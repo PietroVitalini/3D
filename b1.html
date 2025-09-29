@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sketchfab 3D Configurator — Single‑Model v12</title>
+  <title>Sketchfab 3D Configurator — Final Production v14</title>
   <style>
-    :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444 }
+    :root{ --bg:#070b14; --panel:#0d1426; --panel-2:#0b1120; --text:#e8ecf6; --muted:#9aa5b3; --accent:#7dd3fc; --border:#1a2444; --danger:#ef4444 }
     *{box-sizing:border-box}
     html,body{height:100%; overflow:hidden}
     body{margin:0;background:radial-gradient(1200px 800px at 15% -10%, rgba(96,165,250,.12), transparent),
@@ -16,9 +16,9 @@
     .panel h1{margin:0 0 10px;font-size:18px;letter-spacing:.2px}
     .group{border:1px solid var(--border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;background:#0b1326}
     .group h2{font-size:13px;color:var(--muted);margin:0 0 10px;font-weight:600;letter-spacing:.2px}
-    .row{display:flex;gap:10px;align-items:center;margin:12px 0}
+    .row{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}
     label{min-width:92px;color:var(--muted)}
-    input[type="file"]{width:100%}
+    select, input[type="text"], textarea{width:100%}
     textarea#prompt{width:100%;display:block;resize:none;min-height:100px;border:1px solid var(--border);border-radius:12px;background:#0a1222;color:var(--text);padding:12px;outline:none;overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
     textarea#prompt::-webkit-scrollbar{width:0;height:0}
     button{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:var(--text);cursor:pointer}
@@ -27,48 +27,76 @@
     .viewer{height:100vh}
     iframe{width:100%;height:100%;border:0;border-left:1px solid var(--border);background:transparent}
 
-    /* Minimal color box that opens native palette on click */
-    input[type="color"].colorBox{
-      -webkit-appearance: none; appearance: none;
-      border:1px solid var(--border); border-radius:6px; width:48px; height:28px; padding:0; background:#ffffff; cursor:pointer;
-    }
+    /* Modern selects */
+    select{appearance:none;-webkit-appearance:none;background:#0a1222;border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px 36px 10px 12px;line-height:1.2;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6" fill="none" stroke="%239aa5b3" stroke-width="2"/></svg>');background-repeat:no-repeat;background-position:right 10px center}
+    select:focus{outline:none;box-shadow:0 0 0 2px rgba(125,211,252,.35);border-color:var(--accent)}
+
+    /* Full-width primary actions */
+    #genBtn,#dlBtn{display:block;width:100%}
+
+    /* Nav row (arrows + index) */
+    .navRow{display:grid;grid-template-columns:1fr 140px 1fr;gap:8px;align-items:center}
+    #prevBtn,#nextBtn{width:100%}
+    .navRow button{height:44px;display:flex;align-items:center;justify-content:center;font-size:16px;border-radius:10px}
+    #indexBox{width:100%;height:44px;text-align:center;border:1px solid var(--border);border-radius:10px;background:#0a1222;color:var(--text);padding:0 8px;font-weight:700;letter-spacing:.3px}
+
+    /* Color input */
+    input[type="color"].colorBox{ -webkit-appearance: none; appearance: none; border:1px solid var(--border); border-radius:6px; width:48px; height:28px; padding:0; background:#ffffff; cursor:pointer; }
     input[type="color"].colorBox::-webkit-color-swatch-wrapper{ padding:0 }
     input[type="color"].colorBox::-webkit-color-swatch{ border:none; border-radius:6px }
-    .disabled{opacity:.45; pointer-events:none}
+    #colorsContainer .row{ justify-content: space-between; }
+    #colorsContainer .row label{ flex:1 }
+
+    /* Loading state */
+    .button--loading{ position:relative; pointer-events:none; padding-right:36px }
+    .button--loading::after{ content:""; position:absolute; right:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; border-radius:50%; border:2px solid var(--muted); border-top-color:transparent; animation:spin .8s linear infinite }
+    @keyframes spin{ to{ transform:translateY(-50%) rotate(360deg) } }
+
+    .error{ color:var(--danger); font-size:12px; margin-top:6px }
   </style>
 </head>
 <body>
-  <!-- CONFIG: edit materials here (model UID is hard‑wired in client.init()) -->
-
   <div class="wrap">
     <div class="panel">
       <h1>3D Configurator</h1>
+
+      <!-- Model selector -->
+      <div class="group">
+        <h2>Model</h2>
+        <div class="row">
+          <label for="typeSelect">Type</label>
+          <select id="typeSelect"></select>
+        </div>
+        <div class="row">
+          <label for="modelSelect">Model</label>
+          <select id="modelSelect"></select>
+        </div>
+      </div>
 
       <div class="group">
         <h2>Describe your design…</h2>
         <div class="row" style="display:block">
           <textarea id="prompt" rows="5" placeholder="Describe your ideal design in natural language (e.g., minimal geometric pattern in navy and white, subtle fabric texture)…"></textarea>
         </div>
-        <div class="row" style="gap:8px">
+        <div class="row">
           <button id="genBtn">Generate</button>
-          <button id="prevBtn" disabled>←</button>
-          <button id="nextBtn" disabled>→</button>
-          <span id="genStatus" class="hint" style="margin-left:auto"></span>
         </div>
-        <div class="hint">This sends your prompt to the backend, generates an image (base: white texture), and applies it as the material texture. Use arrows to revisit earlier designs.</div>
+        <div class="row navRow">
+          <button id="prevBtn" disabled>←</button>
+          <input id="indexBox" type="text" value="0 / 0" readonly />
+          <button id="nextBtn" disabled>→</button>
+        </div>
+        <div class="row">
+          <button id="dlBtn" disabled>Download</button>
+        </div>
+        <div id="errorBox" class="error" style="display:none"></div>
+        <div class="hint">History is per model for this session only.</div>
       </div>
 
-      <div class="group">
+      <div class="group" id="colorsGroup" style="display:none">
         <h2>Colors</h2>
-        <div class="row">
-          <label>Color 1</label>
-          <input id="c1Input" class="colorBox" type="color" value="#ffffff" />
-        </div>
-        <div class="row">
-          <label>Color 2</label>
-          <input id="c2Input" class="colorBox" type="color" value="#ffffff" />
-        </div>
-        <div class="hint">Click the white box to open the native palette. Picking a color clears texture on that material.</div>
+        <div id="colorsContainer"></div>
+        <div class="hint">Picking a color clears texture on that material.</div>
       </div>
     </div>
 
@@ -79,285 +107,105 @@
 
   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
   <script>
-    // ====== CONFIG (materials only) ======
-    const API_BASE         = 'https://google2.faster-551.workers.dev'; // backend base URL (stores to R2 + D1)
-    const BASE_IMAGE_URL   = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
-    const PREPROMPT        = 'Create Image texture, keep 1:1 shape and size. each parts design should be self contained, keep in mind that the final product will not be as clear as the 2d reppresentation. User design request: ';
-    const MODEL_ID         = 'VP9655';                              // ← sent to /api/generate
-    const DESIGN_MATERIAL  = 'Giacca1_FRONT_2563';          // texture target  = 'Giacca1_FRONT_2563';          // texture target
-    const COLOR1_MATERIAL  = 'Contrasto_FRONT_2545';        // Color 1
-    const COLOR2_MATERIAL  = '';                            // Color 2 (set to enable)
-    // ====== /CONFIG ======
+    // ====== CONFIG ======
+    const API_BASE       = 'https://google2.faster-551.workers.dev'; // your Worker base
+    const BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
+    const PREPROMPT      = 'Create Image texture, keep 1:1 shape and size. each parts design should be self contained, keep in mind that the final product will not be as clear as the 2d reppresentation. User design request: ';
+
+    const CATALOG = {
+      'Jackets': [
+        {
+          id: 'VP9655', name: 'VP9655', uid: 'eea360f7606149deaf75345b1df3f519',
+          designMat: 'Giacca1_FRONT_2563',
+          baseImage: BASE_IMAGE_URL,
+          // optional per-model override
+          // preprompt: '... model-specific guidance ...',
+          colors: [ { label: 'Contrast', material: 'Contrasto_FRONT_2545' } ]
+        }
+      ],
+      'Race suits': [ /* none yet */ ],
+      'Ski pants':  [ /* add later */ ],
+      'Vests':      [ /* add later */ ]
+    };
+
+    // ====== STATE ======
+    let api = null;
+    let currentModel = null;
+    let materialsByName = new Map();
+    let currentIndex = 0;
+    const sessionImages = new Map(); // id -> dataURL (ephemeral)
 
     // DOM
-    const iframe = document.getElementById('api-frame');
+    let iframe   = document.getElementById('api-frame');
+    const typeSel  = document.getElementById('typeSelect');
+    const modelSel = document.getElementById('modelSelect');
+
     const promptEl = document.getElementById('prompt');
-    const genBtn = document.getElementById('genBtn');
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const statusEl = document.getElementById('genStatus');
+    const genBtn   = document.getElementById('genBtn');
+    const prevBtn  = document.getElementById('prevBtn');
+    const nextBtn  = document.getElementById('nextBtn');
+    const dlBtn    = document.getElementById('dlBtn');
+    const indexBox = document.getElementById('indexBox');
+    const errorBox = document.getElementById('errorBox');
 
-    function ensureUserId(){
-      try{
-        let id = localStorage.getItem('vd_user');
-        if(!id){ id = 'u_' + crypto.randomUUID(); localStorage.setItem('vd_user', id); }
-        return id;
-      }catch{ return 'anon'; }
-    }
-    const c1Input  = document.getElementById('c1Input');
-    const c2Input  = document.getElementById('c2Input');
+    const colorsGroup = document.getElementById('colorsGroup');
+    const colorsContainer = document.getElementById('colorsContainer');
 
-    // State
-    let api = null;
-    const materialsByName = new Map();
-    const history = []; // { id, prompt, dataURL }
-    let historyIndex = -1;
+    // ====== HELPERS ======
+    function ensureUserId(){ try{ let id = localStorage.getItem('vd_user'); if(!id){ id = 'u_' + crypto.randomUUID(); localStorage.setItem('vd_user', id); } return id; }catch(e){ return 'anon'; } }
+    function showError(msg){ if(!errorBox) return; errorBox.textContent = msg; errorBox.style.display = 'block'; }
+    function clearError(){ if(!errorBox) return; errorBox.textContent = ''; errorBox.style.display = 'none'; }
 
-    // Utils
     const norm = s => (s||'').trim().toLowerCase();
-    function findMaterial(name){
-      if(!name) return null;
-      const exact = materialsByName.get(name); if(exact) return exact;
-      const lname = norm(name);
-      for(const [k,v] of materialsByName){ if(norm(k)===lname) return v; }
-      for(const [k,v] of materialsByName){ if(norm(k).includes(lname)) return v; }
-      return null;
-    }
+    function baseColorChannel(mat){ const ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
     function hexToRGBNorm(hex){ const h = hex.replace('#',''); const i = parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
     function rgbNormToHex(arr){ const toHex = v => ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); return `#${toHex(arr[0]||0)}${toHex(arr[1]||0)}${toHex(arr[2]||0)}`; }
-    function baseColorChannel(mat){ const ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
+    function findMaterial(name){ if(!name) return null; const exact = materialsByName.get(name); if(exact) return exact; const lname = norm(name); for(const [k,v] of materialsByName){ if(norm(k)===lname) return v; } for(const [k,v] of materialsByName){ if(norm(k).includes(lname)) return v; } return null; }
 
-    // Viewer init
-    (function initViewer(){
-      const client = new Sketchfab('1.12.1', iframe);
-      client.init('eea360f7606149deaf75345b1df3f519', {
-        autostart: 1, preload: 1, dnt: 1, camera: 0, transparent: 1, ui_controls: 1,
-        ui_infos: 0, ui_help: 0, ui_settings: 0, ui_inspector: 0, ui_ar: 0, ui_vr: 0, ui_annotations: 0, ui_animations: 0, ui_stop: 0,
-        ui_watermark: 0, ui_watermark_link: 0,
-        success: function(apiHandle){
-          api = apiHandle; api.start();
-          api.addEventListener('viewerready', function(){
-            if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); }
-            api.getMaterialList(function(err, mats){
-              if(err){ console.warn('getMaterialList error', err); return; }
-              materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m));
-              setupColor(COLOR1_MATERIAL, c1Input);
-              if(COLOR2_MATERIAL){ setupColor(COLOR2_MATERIAL, c2Input); } else { c2Input.classList.add('disabled'); c2Input.disabled = true; }
-              // Attempt to hydrate from backend history (latest first)
-              bootstrapHistoryFromBackend().catch(console.warn);
-            });
-          });
-        },
-        error: function(){ console.error('Sketchfab viewer failed to init'); }
-      });
-    })();
+    function getHistKey(){ return currentModel ? `vd_hist_${currentModel.uid}` : 'vd_hist_none'; }
+    function loadHistory(){ try{ const s = sessionStorage.getItem(getHistKey()); return s ? JSON.parse(s) : []; }catch(e){ return []; } }
+    function saveHistory(arr){ try{ sessionStorage.setItem(getHistKey(), JSON.stringify(arr||[])); }catch(e){} }
 
-    function setupColor(matName, inputEl){
-      const mat = findMaterial(matName);
-      if(!mat){ inputEl.classList.add('disabled'); inputEl.disabled = true; return; }
-      inputEl.disabled = false;
+    function updateIndexFromArr(arr){ const total = arr.length; currentIndex = total; indexBox.value = `${total ? total : 0} / ${total ? total : 0}`; prevBtn.disabled = total <= 1; nextBtn.disabled = true; dlBtn.disabled = total===0; }
+    function applyHistoryIndex(n){ const arr = loadHistory(); const idx = Math.max(1, Math.min(n, arr.length)); const item = arr[idx-1]; if(!item) return; promptEl.value = item.prompt||''; const dataURL = sessionImages.get(item.id); if(!dataURL){ showError('Design image is no longer available in this session'); dlBtn.disabled = true; currentIndex = idx; indexBox.value = `${currentIndex} / ${arr.length}`; prevBtn.disabled = currentIndex<=1; nextBtn.disabled = currentIndex>=arr.length; return; } applyTextureFromDataURL(currentModel.designMat, dataURL); currentIndex = idx; indexBox.value = `${currentIndex} / ${arr.length}`; prevBtn.disabled = currentIndex<=1; nextBtn.disabled = currentIndex>=arr.length; dlBtn.disabled = false; }
+    function hydrateLatest(){ const arr = loadHistory(); if(arr.length){ const item = arr[arr.length-1]; promptEl.value = item.prompt||''; const dataURL = sessionImages.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL); dlBtn.disabled = false; } else { dlBtn.disabled = true; } currentIndex = arr.length; indexBox.value = `${currentIndex} / ${arr.length}`; prevBtn.disabled = arr.length<=1; nextBtn.disabled = true; } else { currentIndex = 0; indexBox.value = `0 / 0`; prevBtn.disabled = true; nextBtn.disabled = true; dlBtn.disabled = true; } }
 
-      // init with current material color if present
-      const chName = baseColorChannel(mat);
-      const ch = (mat.channels||{})[chName] || {};
-      inputEl.value = Array.isArray(ch.color) ? rgbNormToHex(ch.color) : '#ffffff';
+    // ====== SELECTORS ======
+    function initSelectors(){ typeSel.innerHTML = Object.keys(CATALOG).map(t=>`<option value="${t}">${t}</option>`).join(''); typeSel.value = 'Jackets'; populateModels(); typeSel.addEventListener('change', populateModels); modelSel.addEventListener('change', ()=> switchModel(modelSel.value)); }
+    function populateModels(){ const t = typeSel.value; const list = CATALOG[t] || []; modelSel.innerHTML = list.map(m=>`<option value="${m.id}">${m.name}</option>`).join(''); if(list.length){ switchModel(list[0].id); } else { currentModel = null; colorsGroup.style.display='none'; try{ if(document.activeElement && document.activeElement.type === 'color'){ document.activeElement.blur(); } }catch(e){} indexBox.value = '0 / 0'; prevBtn.disabled = true; nextBtn.disabled = true; dlBtn.disabled = true; if (iframe) iframe.src = 'about:blank'; materialsByName = new Map(); api = null; } }
+    function modelById(id){ const t = typeSel.value; const list = CATALOG[t]||[]; return list.find(m=>m.id===id)||null; }
+    function switchModel(modelId){ const m = modelById(modelId); if(!m) return; currentModel = m; renderColors(); initViewerForModel(m.uid); }
 
-      const onPick = ()=> applyColor(matName, inputEl.value);
-      inputEl.addEventListener('input', onPick);
-      inputEl.addEventListener('change', onPick);
-    }
+    function renderColors(){ colorsContainer.innerHTML = ''; const cols = (currentModel && currentModel.colors) || []; if(!cols.length){ colorsGroup.style.display='none'; try{ if(document.activeElement && document.activeElement.type === 'color'){ document.activeElement.blur(); } }catch(e){} return; } colorsGroup.style.display='block'; cols.forEach((c, i)=>{ const row = document.createElement('div'); row.className = 'row'; const lab = document.createElement('label'); lab.textContent = c.label || `Color ${i+1}`; row.appendChild(lab); const inp = document.createElement('input'); inp.type='color'; inp.className='colorBox'; inp.value = '#ffffff'; inp.dataset.material = c.material; row.appendChild(inp); colorsContainer.appendChild(row); inp.addEventListener('input', ()=> applyColor(c.material, inp.value)); inp.addEventListener('change', ()=> { applyColor(c.material, inp.value); try{ inp.blur(); }catch(e){} }); }); }
 
-    // Apply solid color (remove texture) — full material update for reliability
-    function applyColor(matName, hex){
-      const mat = findMaterial(matName); if(!api || !mat) return;
-      const channel = baseColorChannel(mat);
-      const rgb = hexToRGBNorm(hex);
-      mat.channels = Object.assign({}, mat.channels);
-      const ch = Object.assign({}, mat.channels[channel]||{});
-      ch.enable = true; ch.factor = ch.factor ?? 1; ch.color = rgb; if('texture' in ch) delete ch.texture;
-      mat.channels[channel] = ch;
-      api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); });
-    }
+    // ====== VIEWER ======
+    function initViewerForModel(uid){ const parent = iframe ? iframe.parentNode : null; const newIframe = iframe ? iframe.cloneNode() : document.createElement('iframe'); if(parent){ parent.replaceChild(newIframe, iframe); } iframe = newIframe; window.requestAnimationFrame(()=>{ materialsByName = new Map(); api = null; const client = new Sketchfab('1.12.1', newIframe); client.init(uid, { autostart: 1, preload: 1, dnt: 1, camera: 0, transparent: 1, ui_controls: 1, ui_infos: 0, ui_help: 0, ui_settings: 0, ui_inspector: 0, ui_ar: 0, ui_vr: 0, ui_annotations: 0, ui_animations: 0, ui_stop: 0, ui_watermark: 0, ui_watermark_link: 0, success: function(apiHandle){ api = apiHandle; api.start(); api.addEventListener('viewerready', function(){ if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); } api.getMaterialList(function(err, mats){ if(err){ console.warn('getMaterialList error', err); return; } materialsByName.clear(); mats.forEach(m=> materialsByName.set(m.name, m)); Array.from(colorsContainer.querySelectorAll('input[type="color"]')).forEach(inp=>{ const mat = findMaterial(inp.dataset.material); if(mat){ const ch= (mat.channels||{})[baseColorChannel(mat)]||{}; if(Array.isArray(ch.color)){ inp.value = rgbNormToHex(ch.color); } } }); hydrateLatest(); }); }); }, error: function(){ console.error('Sketchfab init failed'); } }); }); }
 
-    // ====== DESIGN: Prompt → Worker → texture ======
-    async function generateDesign(prompt){
-      statusEl.textContent = 'Contacting backend…';
-      const j = await tryStartGeneration(prompt);
+    // ====== COLOR APPLY ======
+    function applyColor(matName, hex){ const mat = findMaterial(matName); if(!api || !mat) return; const channel = baseColorChannel(mat); const rgb = hexToRGBNorm(hex); mat.channels = Object.assign({}, mat.channels); const ch = Object.assign({}, mat.channels[channel]||{}); ch.enable = true; ch.factor = ch.factor ?? 1; ch.color = rgb; if('texture' in ch) delete ch.texture; mat.channels[channel] = ch; api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); }); }
 
-      let finalUrl = null;
-      if (j && (j.url || j.imageUrl)) {
-        finalUrl = j.url || j.imageUrl; // direct image URL
-      } else if (j && j.dataUrl) {
-        const dataURL = j.dataUrl; // direct data URL
-        await applyTextureFromDataURL(DESIGN_MATERIAL, dataURL);
-        pushHistory({ id: j.id||crypto.randomUUID(), prompt, dataURL });
-        statusEl.textContent = 'Applied';
-        return;
-      } else if (j && j.id) {
-        statusEl.textContent = 'Generating…';
-        finalUrl = await pollDesign(j.id);
-      } else {
-        throw new Error('Unexpected backend response');
-      }
+    // ====== GENERATION ======
+    async function doGenerate(){ const userPrompt = (promptEl.value||'').trim(); if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; } const modelPre = (currentModel && currentModel.preprompt) || PREPROMPT; const finalPrompt = modelPre ? `${modelPre}\n\n${userPrompt}` : userPrompt; clearError(); const prevText = genBtn.textContent; genBtn.textContent = 'Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true'); genBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; try{ const j = await tryStartGeneration(finalPrompt); const dataURL = j.dataUrl ? j.dataUrl : await fetchAsDataURL(j.url||j.imageUrl); await applyTextureFromDataURL(currentModel.designMat, dataURL); const item = pushHistoryItem(userPrompt, dataURL); currentIndex = item.n; } catch(e){ console.error(e); showError((e && e.message) ? e.message : 'Error'); } finally{ genBtn.textContent = prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy'); genBtn.disabled = false; const arr = loadHistory(); prevBtn.disabled = arr.length<=1; nextBtn.disabled = true; dlBtn.disabled = arr.length===0; } }
 
-      const dataURL = await fetchAsDataURL(finalUrl);
-      await applyTextureFromDataURL(DESIGN_MATERIAL, dataURL);
-      pushHistory({ id: j.id||crypto.randomUUID(), prompt, dataURL });
-      statusEl.textContent = 'Applied';
-    }
+    async function tryStartGeneration(prompt){ const baseUrl = (currentModel && currentModel.baseImage) || BASE_IMAGE_URL; const baseResp = await fetch(baseUrl, { cache:'no-store' }); if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`); const baseBlob = await baseResp.blob(); const fd = new FormData(); fd.append('prompt', prompt); fd.append('size', '1024x1024'); fd.append('model_id', currentModel?.id || ''); fd.append('user_id', ensureUserId()); fd.append('image', baseBlob, 'base.png'); const resp = await fetch(`${API_BASE}/api/generate`, { method:'POST', body: fd }); if(!resp.ok){ let t=''; try{t=await resp.text();}catch(e){} throw new Error(`${resp.status} ${resp.statusText} ${t}`.trim()); } const j = await resp.json(); const first = j?.data?.[0]; if(first && first.url){ return { id:first.id, url:first.url }; } const b64 = first?.b64_json || j?.data?.[0]?.b64_json; if(b64){ return { dataUrl: `data:image/png;base64,${b64}` }; } throw new Error('Backend OK but returned no image'); }
 
-    // Robust starter: call your Worker /api/generate (R2 + D1 persistence)
-    async function tryStartGeneration(prompt){
-      // 1) Load base image bytes
-      const baseResp = await fetch(BASE_IMAGE_URL, { cache: 'no-store' });
-      if(!baseResp.ok) throw new Error(`Failed to load base image (${baseResp.status})`);
-      const baseBlob = await baseResp.blob();
+    async function fetchAsDataURL(url){ const r = await fetch(url,{cache:'no-store'}); const b = await r.blob(); return await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(b); }); }
 
-      // 2) Compose form-data for /api/generate
-      const fd = new FormData();
-      fd.append('prompt', prompt);
-      fd.append('size', '1024x1024');
-      fd.append('model_id', MODEL_ID);
-      fd.append('user_id', ensureUserId());
-      fd.append('image', baseBlob, 'base.png');
+    async function applyTextureFromDataURL(matName, dataURL){ const mat = findMaterial(matName); if(!api || !mat) throw new Error('Material not available'); return new Promise((resolve,reject)=>{ api.addTexture(dataURL, function(err, texUid){ if(err){ reject(err); return; } const chName = baseColorChannel(mat); mat.channels = Object.assign({}, mat.channels); const ch = Object.assign({}, mat.channels[chName]||{}); ch.enable=true; ch.factor=ch.factor??1; ch.texture={uid:texUid}; ch.color=[1,1,1]; mat.channels[chName]=ch; api.setMaterial(mat, function(e){ if(e) reject(e); else resolve(); }); }); }); }
 
-      // 3) POST to Worker
-      const resp = await fetch(`${API_BASE}/api/generate`, { method: 'POST', body: fd });
-      if(!resp.ok){ let detail = ''; try{ detail = await resp.text(); }catch(e){} throw new Error(`${resp.status} ${resp.statusText} ${detail}`.trim()); }
-      const j = await resp.json();
-      const first = j?.data?.[0];
-      if(!first || !first.url) throw new Error('Backend OK but no image URL returned');
-      return { id: first.id, url: first.url };
-    }
+    function pushHistoryItem(prompt, dataURL){ const arr = loadHistory(); const item = { id: crypto.randomUUID(), n: arr.length + 1, prompt, createdAt: Date.now() }; sessionImages.set(item.id, dataURL); arr.push(item); saveHistory(arr); updateIndexFromArr(arr); return item; }
 
-    async function pollDesign(id){
-      const maxMs = 120000; const start = Date.now();
-      while(true){
-        const r = await fetch(`${API_BASE}/v1/designs/${id}`);
-        if(!r.ok) throw new Error('Status check failed');
-        const j = await r.json();
-        if(j.status === 'ready' && j.url) return j.url;
-        if(Date.now() - start > maxMs) throw new Error('Generation timeout');
-        await new Promise(res=>setTimeout(res, 2000));
-      }
-    }
+    // Buttons
+    genBtn.addEventListener('click', ()=>{ doGenerate(); });
+    prevBtn.addEventListener('click', ()=>{ const arr = loadHistory(); if(arr.length>1){ const target = Math.max(1, (currentIndex||arr.length) - 1); applyHistoryIndex(target); } });
+    nextBtn.addEventListener('click', ()=>{ const arr = loadHistory(); if(arr.length>1){ const target = Math.min(arr.length, (currentIndex||1) + 1); applyHistoryIndex(target); } });
+    dlBtn.addEventListener('click', ()=>{ const arr=loadHistory(); if(!arr.length) return; const curr = Math.max(1, parseInt(indexBox.value.split('/')[0])||arr.length); const item = arr[curr-1]; const dataURL = sessionImages.get(item.id); if(!dataURL){ showError('Nothing to download for this design in this session'); return; } const a = document.createElement('a'); const name = `${currentModel?.id||'model'}_design_${item.n}.png`; a.href = dataURL; a.download = name; document.body.appendChild(a); a.click(); a.remove(); });
 
-    async function fetchAsDataURL(url){
-      const resp = await fetch(url, { cache:'no-store' });
-      const blob = await resp.blob();
-      return await new Promise((resolve)=>{ const fr = new FileReader(); fr.onload = ()=>resolve(fr.result); fr.readAsDataURL(blob); });
-    }
+    // Close native color picker popover after picking
+    document.addEventListener('change', function(e){ const t = e.target; if (t && t.matches && t.matches('input.colorBox[type="color"]')) { try{ t.blur(); }catch(e){} } });
 
-    function pushHistory(item){
-      history.push(item); historyIndex = history.length - 1; updateNavButtons();
-    }
-
-    async function bootstrapHistoryFromBackend(){
-      try{
-        const user = ensureUserId();
-        const r = await fetch(`${API_BASE}/api/my-images?user_id=${encodeURIComponent(user)}&limit=6`, { cache:'no-store' });
-        if(!r.ok) return;
-        const j = await r.json();
-        const rows = Array.isArray(j?.data) ? j.data : [];
-        if(!rows.length) return;
-        // newest first → reverse to oldest→newest to push in order
-        rows.reverse();
-        for(const row of rows){
-          if(!row.url) continue;
-          const dataURL = await fetchAsDataURL(row.url);
-          pushHistory({ id: row.id, prompt: '(restored)', dataURL });
-        }
-        await applyHistory(history.length-1);
-        statusEl.textContent = 'Restored previous designs';
-      }catch(e){ console.warn('bootstrap history failed', e); }
-    }
-
-    function updateNavButtons(){
-      prevBtn.disabled = historyIndex <= 0; nextBtn.disabled = historyIndex >= history.length - 1;
-    }
-
-    async function applyHistory(idx){
-      const item = history[idx]; if(!item) return;
-      await applyTextureFromDataURL(DESIGN_MATERIAL, item.dataURL);
-      promptEl.value = item.prompt || '';
-      historyIndex = idx; updateNavButtons();
-    }
-
-    // ====== Shared: apply texture from DataURL ======
-    async function applyTextureFromDataURL(matName, dataURL){
-      const mat = findMaterial(matName); if(!api || !mat) throw new Error('Material not available');
-      return new Promise((resolve, reject)=>{
-        api.addTexture(dataURL, function(err, texUid){
-          if(err){ console.warn('addTexture error', err); reject(err); return; }
-          const channel = baseColorChannel(mat);
-          mat.channels = Object.assign({}, mat.channels);
-          const ch = Object.assign({}, mat.channels[channel]||{});
-          ch.enable = true; ch.factor = ch.factor ?? 1; ch.texture = { uid: texUid }; ch.color = [1,1,1];
-          mat.channels[channel] = ch;
-          api.setMaterial(mat, function(e){ if(e){ console.warn('setMaterial tex error', e); reject(e); } else resolve(); });
-        });
-      });
-    }
-
-    // ====== UI wiring for Design ======
-    genBtn.addEventListener('click', async ()=>{
-      const p = (promptEl.value||'').trim();
-      if(!p){ statusEl.textContent = 'Enter a prompt first'; return; }
-      const finalPrompt = PREPROMPT + p;
-      genBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; statusEl.textContent = 'Generating…';
-      try{
-        const j = await tryStartGeneration(finalPrompt);
-        const dataURL = await fetchAsDataURL(j.url);
-        await applyTextureFromDataURL(DESIGN_MATERIAL, dataURL);
-        pushHistory({ id: j.id||crypto.randomUUID(), prompt: p, dataURL });
-        statusEl.textContent = 'Applied';
-      }catch(e){ console.error(e); statusEl.textContent = (e && e.message ? e.message : 'Error'); }
-      finally{ genBtn.disabled = false; updateNavButtons(); }
-    });
-    prevBtn.addEventListener('click', ()=> applyHistory(Math.max(0, historyIndex-1)) );
-    nextBtn.addEventListener('click', ()=> applyHistory(Math.min(history.length-1, historyIndex+1)) );
-    // ====== END DESIGN SECTION ======
+    // Boot
+    initSelectors();
   </script>
-
-  <!-- Cloudflare Worker (TypeScript) — scaffold only; fill in provider calls and deploy as a Worker.
-
-  import { Hono } from 'hono';
-  export interface Env { R2_BUCKET: R2Bucket; KV: KVNamespace; GEMINI_API_KEY: string; FAL_KEY: string; }
-  const app = new Hono<{ Bindings: Env }>();
-
-  app.post('/v1/designs', async (c) => {
-    const { prompt } = await c.req.json();
-    const id = crypto.randomUUID();
-    // TODO: fetch base white from R2 or embed
-    // TODO: call Gemini image gen with prompt (+ optional init image)
-    // const pngBytes = await generateWithGemini(prompt, baseBytes, c.env.GEMINI_API_KEY);
-    // await c.env.R2_BUCKET.put(`designs/${id}@gen.png`, pngBytes, { httpMetadata: { contentType: 'image/png' } });
-    // const signedGen = await presignGet(c.env, `designs/${id}@gen.png`, 600);
-    // await submitFalUpscale(c.env.FAL_KEY, { id, image_url: signedGen, webhook: new URL('/v1/fal-webhook', c.req.url).toString() });
-    await c.env.KV.put(`design:${id}`, JSON.stringify({ id, prompt, status: 'processing' }), { expirationTtl: 3600 });
-    return c.json({ id });
-  });
-
-  app.post('/v1/fal-webhook', async (c) => {
-    const payload = await c.req.json();
-    const id = payload.metadata?.id || payload.id;
-    const upUrl = payload.images?.[0]?.url;
-    const png = await fetch(upUrl).then(r=>r.arrayBuffer());
-    await c.env.R2_BUCKET.put(`designs/${id}@up.png`, png, { httpMetadata: { contentType: 'image/png' } });
-    await c.env.KV.put(`design:${id}`, JSON.stringify({ id, status: 'ready', key: `designs/${id}@up.png` }), { expirationTtl: 86400 });
-    return c.text('ok');
-  });
-
-  app.get('/v1/designs/:id', async (c) => {
-    const id = c.req.param('id');
-    const meta = await c.env.KV.get(`design:${id}`, 'json');
-    if(!meta) return c.json({ error: 'not_found' }, 404);
-    if(meta.status !== 'ready') return c.json({ id, status: meta.status });
-    const signed = await presignGet(c.env, meta.key, 300);
-    return c.json({ id, status: 'ready', url: signed });
-  });
-
-  export default app;
-
-  // helpers presignGet(), generateWithGemini(), submitFalUpscale() — implement with provider SDKs or fetch()
-  -->
+</body>
+</html>
