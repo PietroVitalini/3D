@@ -110,30 +110,7 @@
     // ====== CONFIG ======
     const API_BASE       = 'https://google2.faster-551.workers.dev'; // backend
     const BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
-    const PREPROMPT      = 'GOAL:
-Transform the provided flat sewing‑pattern reference into a 2D texture map. Fill the interior of each outlined piece with professional design.
-
-Geometry & Canvas — Treat all black outlines and thin guides as hard masks/edge guides. Paint up to the inside edge; preserve outlines and guides exactly; leave the outer white background untouched.
-
-Typography/Icons (when requested) — Large, crisp, vector‑clean. Place on appropriate panels with generous safe margins from edges and guides. Maintain legibility at distance and after sewing.
-
-DESIGN QUALITY (ALWAYS APPLY)
-
-Follow the user brief precisely.
-
-If the brief is short/weak, elevate the design:
-
-Establish a distinctive color system and clear visual hierarchy that fits the theme.
-
-Choose one coherent primary motif plus a subtle secondary accent; repeat rhythmically across pieces for cohesion.
-
-Compose with strong panel‑aware geometry; ensure alignment across arms/side panels/back; reserve at least one clean hero area for marks when relevant.
-
-Prioritize bold, readable mid‑scale elements over micro detail. Avoid empty, bland large panels unless “minimal” is explicitly requested.
-
-Creativity with control — Introduce tasteful novelty suitable for high‑performance sportswear: dynamic flow, balanced negative space, precise edge discipline. The result should feel premium, energetic, and production‑ready.
-
-User design request: ';
+    const PREPROMPT      = 'GOAL:  Transform the provided flat sewing‑pattern reference into a 2D texture map. Fill the interior of each outlined piece with professional design.  Geometry & Canvas — Treat all black outlines and thin guides as hard masks/edge guides. Paint up to the inside edge; preserve outlines and guides exactly; leave the outer white background untouched.  Typography/Icons (when requested) — Large, crisp, vector‑clean. Place on appropriate panels with generous safe margins from edges and guides. Maintain legibility at distance and after sewing.  DESIGN QUALITY (ALWAYS APPLY)  Follow the user brief precisely.  If the brief is short/weak, elevate the design:  Establish a distinctive color system and clear visual hierarchy that fits the theme.  Choose one coherent primary motif plus a subtle secondary accent; repeat rhythmically across pieces for cohesion.  Compose with strong panel‑aware geometry; ensure alignment across arms/side panels/back; reserve at least one clean hero area for marks when relevant.  Prioritize bold, readable mid‑scale elements over micro detail. Avoid empty, bland large panels unless “minimal” is explicitly requested.  Creativity with control — Introduce tasteful novelty suitable for high‑performance sportswear: dynamic flow, balanced negative space, precise edge discipline. The result should feel premium, energetic, and production‑ready.  User design request: ';
 
     const CATALOG = {
       'Jackets': [
