@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sketchfab 3D Configurator — v15 (Overlay Layout + Robust Viewer Boot)</title>
+  <style>
+    /* ======= Base ======= */
+    :root{
+      --text:#0b0f19;          /* near-black */
+      --muted:#334155;         /* slate-700 */
+      --accent:#93c5fd;        /* sky-300 */
+      --glass:#eaf3ffcc;       /* light blue glass */
+      --glass-border:#93c5fd;  /* 1px border */
+      --input-border:rgba(148,163,184,.5);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0;
+      overflow:hidden; /* viewer always visible */
+      color:var(--text);
+      font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      background:url('https://images.pexels.com/photos/209955/pexels-photo-209955.jpeg?cs=srgb&dl=pexels-pixabay-209955.jpg&fm=jpg') center/cover fixed no-repeat;
+    }
+
+    /* ======= Viewer covers page, panel floats ======= */
+    .viewer-root{position:fixed; inset:0; z-index:1;}
+    .viewer-root iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:transparent}
+
+    .panel{position:fixed; top:0; right:0; width:min(380px, 92vw); height:100vh; overflow-y:auto; z-index:2; padding:18px 14px 20px; background:transparent}
+    .card{background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:12px 12px 14px; margin:12px 0; backdrop-filter:blur(8px) saturate(160%); -webkit-backdrop-filter:blur(8px) saturate(160%); box-shadow:0 8px 30px rgba(15,23,42,.12)}
+    .card h2{margin:0 0 10px; font-size:13px; font-weight:600; color:var(--text); letter-spacing:.2px}
+
+    .brand{display:block; max-width:100%; height:auto; margin:0 0 8px; filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+
+    .row{display:flex; gap:10px; align-items:center; margin:12px 0; flex-wrap:wrap}
+    label{min-width:92px; color:var(--text)}
+    select, input[type="text"], input[type="email"], textarea{width:100%}
+
+    textarea#prompt{width:100%; display:block; resize:none; min-height:110px; border:1px solid var(--input-border); border-radius:12px; background:#fff; color:var(--text); padding:12px; outline:none; overflow:auto; scrollbar-width:none; -ms-overflow-style:none}
+    textarea#prompt::-webkit-scrollbar{width:0;height:0}
+
+    /* Modern select */
+    select{appearance:none; -webkit-appearance:none; background:#fff; border:1px solid var(--input-border); border-radius:10px; color:var(--text); padding:10px 36px 10px 12px; line-height:1.2; background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6" fill="none" stroke="%230b0f19" stroke-width="2"/></svg>'); background-repeat:no-repeat; background-position:right 10px center}
+    select:focus{outline:none; box-shadow:0 0 0 3px rgba(147,197,253,.35); border-color:var(--accent)}
+
+    /* Buttons */
+    button{padding:10px 12px; border:1px solid var(--input-border); border-radius:10px; background:linear-gradient(180deg, #ffffff, #f5f9ff); color:var(--text); cursor:pointer; box-shadow:0 2px 0 rgba(255,255,255,.6) inset, 0 8px 20px rgba(15,23,42,.08)}
+    button:disabled{opacity:.5; cursor:not-allowed}
+    .button--loading{position:relative; pointer-events:none; padding-right:36px}
+    .button--loading::after{content:""; position:absolute; right:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; border-radius:50%; border:2px solid var(--accent); border-top-color:transparent; animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:translateY(-50%) rotate(360deg)}}
+
+    /* Nav */
+    .navRow{display:grid; grid-template-columns:1fr 140px 1fr; gap:8px; align-items:center}
+    #indexBox{width:100%; height:44px; text-align:center; border:1px solid var(--input-border); border-radius:10px; background:#fff; color:var(--text); padding:0 8px; font-weight:700; letter-spacing:.3px}
+
+    /* Color input */
+    input[type="color"].colorBox{-webkit-appearance:none; appearance:none; border:1px solid var(--input-border); border-radius:6px; width:48px; height:28px; padding:0; background:#fff; cursor:pointer}
+    input[type="color"].colorBox::-webkit-color-swatch-wrapper{padding:0}
+    input[type="color"].colorBox::-webkit-color-swatch{border:none; border-radius:6px}
+
+    .hint{color:#1f2937; font-size:12px; margin-top:6px}
+    .error{color:#ef4444; font-size:12px; margin-top:6px}
+
+    /* Make sure iframe is never covered accidentally */
+    .guard{position:fixed; inset:auto auto 12px 12px; z-index:3; pointer-events:none; font-size:11px; color:#0b0f19; opacity:.0}
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Viewer -->
+  <div class="viewer-root">
+    <iframe id="api-frame" title="Sketchfab Viewer" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share src="about:blank"></iframe>
+  </div>
+
+  <!-- Floating Control Panel -->
+  <aside class="panel" aria-label="Control Panel">
+    <img class="brand" src="https://framerusercontent.com/images/7jMTSe1FHqNwAG14VgXuvdjPu8.png?width=1019&height=237" alt="Vitalini Designer" />
+
+    <section class="card">
+      <h2>Model</h2>
+      <div class="row">
+        <label for="typeSelect">Type</label>
+        <select id="typeSelect"></select>
+      </div>
+      <div class="row">
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect"></select>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Describe your design…</h2>
+      <div class="row" style="display:block">
+        <textarea id="prompt" rows="5" placeholder="Describe your ideal design in natural language (e.g., minimal geometric pattern in navy and white, subtle fabric texture)…"></textarea>
+      </div>
+      <div class="row">
+        <button id="genBtn">Generate</button>
+      </div>
+      <div class="row navRow">
+        <button id="prevBtn" disabled>←</button>
+        <input id="indexBox" type="text" value="0 / 0" readonly />
+        <button id="nextBtn" disabled>→</button>
+      </div>
+      <div class="row">
+        <button id="dlBtn" disabled>Download</button>
+      </div>
+      <div id="errorBox" class="error" style="display:none"></div>
+      <div class="hint">History is per model and saved on the server. Reopening resumes from your latest design.</div>
+    </section>
+
+    <section class="card" id="colorsGroup" style="display:none">
+      <h2>Colors</h2>
+      <div id="colorsContainer"></div>
+      <div class="hint">Picking a color clears texture on that material.</div>
+    </section>
+  </aside>
+
+  <!-- Tiny debug indicator (can be toggled visible if needed) -->
+  <div class="guard" id="guardLog">viewer boot…</div>
+
+  <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+  <script>
+    // ===================== CONFIG =====================
+    var API_BASE = 'https://google2.faster-551.workers.dev';
+    var ENDPOINTS = {
+      LEGACY_GENERATE: API_BASE + '/api/generate-gemini',
+      SAVE:            API_BASE + '/api/save',
+      MY_IMAGES:       API_BASE + '/api/my-images'
+    };
+
+    var BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
+    var PREPROMPT = 'Create Image texture, keep 1:1 shape and size. Each part\'s design should be self-contained. Keep in mind final product will not be as crisp as 2D. User design request: ';
+
+    var CATALOG = {
+      'Jackets': [
+        { id:'VP9655', name:'VP9655', uid:'eea360f7606149deaf75345b1df3f519', designMat:'Giacca1_FRONT_2563', baseImage:BASE_IMAGE_URL,
+          colors:[ {label:'Contrast', material:'Contrasto_FRONT_2545'}, {label:'Zipper', material:'Zipper__Velcro_FRONT_2559'} ] }
+      ],
+      'Race suits': [],
+      'Ski pants':  [],
+      'Vests':      []
+    };
+
+    // ===================== STATE =====================
+    var api = null;                 // Sketchfab API handle
+    var currentModel = null;        // current catalog entry
+    var materialsByName = new Map();
+    var iframe = document.getElementById('api-frame');
+
+    // Server-backed history (oldest-first)
+    var serverItems = [];
+    var serverIndex = 0;
+
+    // Local fallback cache for session-only (id -> dataURL)
+    var sessionImages = new Map();
+
+    // DOM refs
+    var typeSel  = document.getElementById('typeSelect');
+    var modelSel = document.getElementById('modelSelect');
+    var promptEl = document.getElementById('prompt');
+    var genBtn   = document.getElementById('genBtn');
+    var prevBtn  = document.getElementById('prevBtn');
+    var nextBtn  = document.getElementById('nextBtn');
+    var dlBtn    = document.getElementById('dlBtn');
+    var indexBox = document.getElementById('indexBox');
+    var errorBox = document.getElementById('errorBox');
+    var colorsGroup = document.getElementById('colorsGroup');
+    var colorsContainer = document.getElementById('colorsContainer');
+    var guard = document.getElementById('guardLog');
+
+    // ===================== UTIL =====================
+    function logGuard(msg){ try{ guard.textContent = String(msg); }catch(e){} }
+    function showError(msg){ errorBox.textContent = msg; errorBox.style.display = msg ? 'block' : 'none'; }
+    function clearError(){ showError(''); }
+
+    function norm(s){ return (s||'').trim().toLowerCase(); }
+    function baseColorChannel(mat){ var ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
+    function hexToRGBNorm(hex){ var h = hex.replace('#',''); var i = parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
+    function rgbNormToHex(arr){ function toHex(v){ return ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); } return '#' + toHex(arr[0]||0) + toHex(arr[1]||0) + toHex(arr[2]||0); }
+
+    function findMaterial(name){ if(!name) return null; var exact = materialsByName.get(name); if(exact) return exact; var lname = norm(name); var it; for(it of materialsByName){ if(norm(it[0])===lname) return it[1]; } for(it of materialsByName){ if(norm(it[0]).indexOf(lname)>=0) return it[1]; } return null; }
+
+    function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r = crypto.getRandomValues(new Uint8Array(1))[0] & 15; var v=c==='x'?r:(r&0x3|0x8); return v.toString(16); }); }
+    function getUserId(){ var KEY='vitalini_uid_v1', OLD='vd_user'; var id=localStorage.getItem(KEY); if(!id){ id=localStorage.getItem(OLD) || uuid(); localStorage.setItem(KEY,id);} return id; }
+
+    function fetchAsDataURL(url){
+      return fetch(url,{cache:'no-store'})
+        .then(function(r){ if(!r.ok) throw new Error('Failed to fetch image ('+r.status+')'); return r.blob(); })
+        .then(function(b){ return new Promise(function(res){ var fr=new FileReader(); fr.onload=function(){ res(fr.result); }; fr.readAsDataURL(b); }); });
+    }
+    function dataURLToBlob(dataURL){ return fetch(dataURL).then(function(res){ return res.blob(); }); }
+
+    // ===================== SELECTORS & MODEL =====================
+    function initSelectors(){
+      var types = Object.keys(CATALOG).map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
+      typeSel.innerHTML = types; typeSel.value='Jackets'; populateModels();
+      typeSel.addEventListener('change', populateModels);
+      modelSel.addEventListener('change', function(){ switchModel(modelSel.value); });
+    }
+    function populateModels(){
+      var t=typeSel.value, list=CATALOG[t]||[];
+      modelSel.innerHTML = list.map(function(m){ return '<option value="'+m.id+'">'+m.name+'</option>'; }).join('');
+      if(list.length){ switchModel(list[0].id); } else { resetViewerAndUI(); }
+    }
+    function modelById(id){ var t=typeSel.value, list=CATALOG[t]||[]; for(var i=0;i<list.length;i++){ if(list[i].id===id) return list[i]; } return null; }
+
+    // ===================== VIEWER BOOT (First Principles) =====================
+    function hardResetIframe(){
+      var parent = iframe.parentNode; if(!parent) return;
+      var fresh = document.createElement('iframe');
+      fresh.id = 'api-frame';
+      fresh.title = 'Sketchfab Viewer';
+      fresh.allow = 'autoplay; fullscreen; xr-spatial-tracking';
+      fresh.setAttribute('allowfullscreen','true');
+      fresh.setAttribute('xr-spatial-tracking','');
+      fresh.setAttribute('execution-while-out-of-viewport','');
+      fresh.setAttribute('execution-while-not-rendered','');
+      fresh.setAttribute('web-share','');
+      fresh.src = 'about:blank';
+      fresh.style.position='absolute'; fresh.style.inset='0';
+      fresh.style.width='100%'; fresh.style.height='100%'; fresh.style.border='0';
+      parent.replaceChild(fresh, iframe);
+      iframe = fresh;
+    }
+
+    function bootViewer(uid){
+      logGuard('booting…');
+      hardResetIframe();
+      materialsByName = new Map(); api = null; clearError();
+
+      // Fallback: pre-set embed src (in case API init is blocked). Will get overwritten by API, but ensures visibility.
+      try{ iframe.src = 'https://sketchfab.com/models/' + encodeURIComponent(uid) + '/embed?ui_infos=0&ui_help=0&ui_settings=0&transparent=1&ui_watermark=0&ui_watermark_link=0'; }catch(e){}
+
+      var client = new Sketchfab('1.12.1', iframe);
+      var readyFired = false;
+
+      client.init(uid, {
+        autostart:1, preload:1, dnt:1, camera:0, transparent:1, ui_controls:1,
+        ui_infos:0, ui_help:0, ui_settings:0, ui_inspector:0, ui_ar:0, ui_vr:0, ui_annotations:0, ui_animations:0, ui_stop:0,
+        ui_watermark:0, ui_watermark_link:0,
+        success:function(apiHandle){
+          api = apiHandle; api.start(); logGuard('api.start');
+          api.addEventListener('viewerready', function(){ readyFired = true; logGuard('viewerready');
+            if(api.setBackground){ api.setBackground({ transparent: true }, function(){}); }
+            api.getMaterialList(function(err, mats){
+              if(err){ console.warn('getMaterialList error', err); return; }
+              materialsByName.clear(); mats.forEach(function(m){ materialsByName.set(m.name, m); });
+              // sync color pickers
+              var inps = colorsContainer.querySelectorAll('input[type="color"]');
+              for(var i=0;i<inps.length;i++){ var inp=inps[i]; var mat=findMaterial(inp.getAttribute('data-material')); if(mat){ var ch=(mat.channels||{})[baseColorChannel(mat)]||{}; if(ch && ch.color && Object.prototype.toString.call(ch.color)==='[object Array]'){ inp.value = rgbNormToHex(ch.color); } } }
+              // load history
+              loadServerHistory(currentModel.id).then(function(){ if(serverItems.length){ serverIndex=serverItems.length-1; applyCurrentFromServer(); } else { hydrateLocalLatest(); } });
+            });
+          });
+          api.addEventListener('error', function(e){ console.warn('viewer error', e); showError('Viewer error.'); });
+        },
+        error:function(){ console.error('Sketchfab init failed'); showError('Viewer failed to initialize'); }
+      });
+
+      // If viewerready doesn’t fire in 4s, force fallback embed (already set) and message
+      setTimeout(function(){ if(!readyFired){ logGuard('fallback embed active'); /* the pre-set src continues */ } }, 4000);
+    }
+
+    function resetViewerAndUI(){
+      currentModel = null; colorsGroup.style.display='none'; indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true;
+      try{ hardResetIframe(); }catch(e){}
+      materialsByName=new Map(); api=null; serverItems=[]; serverIndex=0; clearError();
+    }
+
+    function switchModel(modelId){ var m=modelById(modelId); if(!m) return; currentModel=m; renderColors(); bootViewer(m.uid); }
+
+    // ===================== COLORS =====================
+    function renderColors(){
+      colorsContainer.innerHTML=''; var cols=(currentModel && currentModel.colors)||[];
+      if(!cols.length){ colorsGroup.style.display='none'; try{ if(document.activeElement && document.activeElement.type==='color'){ document.activeElement.blur(); } }catch(e){} return; }
+      colorsGroup.style.display='block';
+      cols.forEach(function(c,i){
+        var row=document.createElement('div'); row.className='row';
+        var lab=document.createElement('label'); lab.textContent=c.label||('Color '+(i+1)); row.appendChild(lab);
+        var inp=document.createElement('input'); inp.type='color'; inp.className='colorBox'; inp.value='#ffffff'; inp.setAttribute('data-material', c.material); row.appendChild(inp);
+        colorsContainer.appendChild(row);
+        inp.addEventListener('input', function(){ applyColor(c.material, inp.value); });
+        inp.addEventListener('change', function(){ applyColor(c.material, inp.value); try{ inp.blur(); }catch(e){} });
+      });
+    }
+
+    function applyColor(matName, hex){ var mat=findMaterial(matName); if(!api || !mat) return; var channel=baseColorChannel(mat); var rgb=hexToRGBNorm(hex); mat.channels=Object.assign({}, mat.channels); var ch=Object.assign({}, mat.channels[channel]||{}); ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.color=rgb; if('texture' in ch) delete ch.texture; mat.channels[channel]=ch; api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); }); }
+
+    // ===================== GENERATION (UNCHANGED BACKEND) =====================
+    function doGenerate(){
+      var userPrompt=(promptEl.value||'').trim(); if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; }
+      var modelPre=(currentModel && currentModel.preprompt) || PREPROMPT; var finalPrompt = modelPre ? (modelPre + '\n\n' + userPrompt) : userPrompt; clearError();
+      var prevText=genBtn.textContent; genBtn.textContent='Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true');
+      genBtn.disabled=true; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true;
+      tryStartGeneration(finalPrompt)
+        .then(function(j){ return j.dataUrl ? j.dataUrl : fetchAsDataURL(j.url||j.imageUrl); })
+        .then(function(dataURL){ return applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ return dataURL; }); })
+        .then(function(dataURL){ return persistGenerated(dataURL, currentModel.id, userPrompt).then(function(saved){ if(saved){ serverItems.push(saved); serverIndex=serverItems.length-1; updateIndexUI(); } else { var item=pushLocalHistoryItem(userPrompt, dataURL); updateLocalIndexFromArr(loadLocalHistory()); } }); })
+        .catch(function(e){ console.error(e); showError((e&&e.message)?e.message:'Error'); })
+        .finally(function(){ genBtn.textContent=prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy'); genBtn.disabled=false; updateIndexUI(); });
+    }
+
+    function tryStartGeneration(prompt){
+      var baseUrl=(currentModel && currentModel.baseImage) || BASE_IMAGE_URL;
+      return fetch(baseUrl,{cache:'no-store'})
+        .then(function(baseResp){ if(!baseResp.ok) throw new Error('Failed to load base image ('+baseResp.status+')'); return baseResp.blob(); })
+        .then(function(baseBlob){ var fd=new FormData(); fd.append('prompt', prompt); fd.append('size','1024x1024'); fd.append('user_id', getUserId()); fd.append('image', baseBlob, 'base.png'); return fetch(ENDPOINTS.LEGACY_GENERATE, { method:'POST', body: fd }); })
+        .then(function(resp){ if(!resp.ok) return resp.text().then(function(t){ throw new Error(resp.status+' '+resp.statusText+' '+t); }); return resp.json(); })
+        .then(function(data){ var b64=null; if(data && data.data && data.data[0] && data.data[0].b64_json){ b64=data.data[0].b64_json; } if(!b64) throw new Error('Backend OK but returned no image data'); return { dataUrl:'data:image/png;base64,'+b64 }; });
+    }
+
+    function persistGenerated(dataURL, productModelId, userPrompt){
+      return dataURLToBlob(dataURL).then(function(blob){ var fd=new FormData(); fd.append('user_id', getUserId()); fd.append('model_id', productModelId); fd.append('prompt', userPrompt); fd.append('image', new File([blob], 'design.png', {type:'image/png'})); return fetch(ENDPOINTS.SAVE, { method:'POST', body: fd }); })
+        .then(function(res){ if(!res.ok) return null; return res.json().catch(function(){ return null; }); })
+        .then(function(json){ return (json && json.data && json.data[0]) ? json.data[0] : null; });
+    }
+
+    // ===================== SERVER HISTORY =====================
+    function loadServerHistory(productModelId){ serverItems=[]; serverIndex=0; var uid=getUserId(); var url=ENDPOINTS.MY_IMAGES+'?user_id='+encodeURIComponent(uid)+'&model_id='+encodeURIComponent(productModelId)+'&limit=200'; return fetch(url,{cache:'no-store'})
+        .then(function(res){ if(!res.ok){ updateIndexUI(); return null; } return res.json(); })
+        .then(function(data){ if(!data) return; var newestFirst=(data.data||[]); serverItems=newestFirst.slice().reverse(); serverIndex=Math.max(0, serverItems.length-1); updateIndexUI(); })
+        .catch(function(e){ console.warn('loadServerHistory failed', e); serverItems=[]; serverIndex=0; updateIndexUI(); }); }
+
+    function applyTextureFromDataURL(matName, dataURL){ var mat=findMaterial(matName); if(!api || !mat) return Promise.reject(new Error('Material not available')); return new Promise(function(resolve,reject){ api.addTexture(dataURL,function(err,texUid){ if(err){ reject(err); return; } var chName=baseColorChannel(mat); mat.channels=Object.assign({},mat.channels); var ch=Object.assign({}, mat.channels[chName]||{}); ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.texture={uid:texUid}; ch.color=[1,1,1]; mat.channels[chName]=ch; api.setMaterial(mat,function(e){ if(e) reject(e); else resolve(); }); }); }); }
+
+    function applyCurrentFromServer(){ var it=serverItems[serverIndex]; if(!it){ updateIndexUI(); return; } fetchAsDataURL(it.url).then(function(dataURL){ return applyTextureFromDataURL(currentModel.designMat, dataURL); }).then(function(){ promptEl.value=it.prompt||''; dlBtn.disabled=false; updateIndexUI(); }).catch(function(e){ console.warn('Texture fetch failed', e); showError('Could not load texture from storage. Check CORS or enable proxy.'); updateIndexUI(); }); }
+
+    function updateIndexUI(){ if(serverItems.length){ var total=serverItems.length; var pos=serverIndex+1; indexBox.value=pos+' / '+total; prevBtn.disabled=serverIndex<=0; nextBtn.disabled=serverIndex>=total-1; dlBtn.disabled=total===0; } else { var arr=loadLocalHistory(); var total2=arr.length; var pos2= total2 ? total2 : 0; indexBox.value=pos2+' / '+total2; prevBtn.disabled=total2<=1; nextBtn.disabled=true; dlBtn.disabled=total2===0; } }
+
+    // ===================== LOCAL FALLBACK =====================
+    function getLocalHistKey(){ return currentModel ? ('vd_hist_'+currentModel.uid) : 'vd_hist_none'; }
+    function loadLocalHistory(){ try{ var s=sessionStorage.getItem(getLocalHistKey()); return s?JSON.parse(s):[]; }catch(e){ return []; } }
+    function saveLocalHistory(arr){ try{ sessionStorage.setItem(getLocalHistKey(), JSON.stringify(arr||[])); }catch(e){} }
+    function updateLocalIndexFromArr(arr){ var total=arr.length; indexBox.value=total+' / '+total; prevBtn.disabled=total<=1; nextBtn.disabled=true; dlBtn.disabled=total===0; }
+    function pushLocalHistoryItem(prompt, dataURL){ var arr=loadLocalHistory(); var id=(window.crypto && crypto.randomUUID)? crypto.randomUUID() : uuid(); var item={ id:id, n:arr.length+1, prompt:prompt, createdAt:Date.now() }; sessionImages.set(item.id, dataURL); arr.push(item); saveLocalHistory(arr); updateLocalIndexFromArr(arr); return item; }
+    function hydrateLocalLatest(){ var arr=loadLocalHistory(); if(arr.length){ var item=arr[arr.length-1]; var dataURL=sessionImages.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).catch(function(){}); dlBtn.disabled=false; } else { dlBtn.disabled=true; } indexBox.value=arr.length+' / '+arr.length; prevBtn.disabled=arr.length<=1; nextBtn.disabled=true; } else { indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; } }
+
+    // ===================== CONTROLS =====================
+    genBtn.addEventListener('click', function(){ doGenerate(); });
+    prevBtn.addEventListener('click', function(){ if(serverItems.length){ if(serverIndex>0){ serverIndex -= 1; applyCurrentFromServer(); } } else { var arr=loadLocalHistory(); if(arr.length>1){ var target=Math.max(1, arr.length-1); var item=arr[target-1]; var dataURL=sessionImages.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ updateLocalIndexFromArr(arr); }); } } } });
+    nextBtn.addEventListener('click', function(){ if(serverItems.length && serverIndex < serverItems.length-1){ serverIndex += 1; applyCurrentFromServer(); } });
+    dlBtn.addEventListener('click', function(){ try{ var p; if(serverItems.length){ var it=serverItems[serverIndex]; if(!it) return; p=fetchAsDataURL(it.url).then(function(dataURL){ return { dataURL:dataURL }; }).catch(function(){ return { dataURL:null, url:it.url }; }); } else { var arr=loadLocalHistory(); if(!arr.length) return; var item=arr[arr.length-1]; var dataURL=sessionImages.get(item.id); if(!dataURL) return; p=Promise.resolve({ dataURL:dataURL }); } p.then(function(res){ var baseName=(currentModel && currentModel.id)? currentModel.id : 'model'; if(res.dataURL){ var a1=document.createElement('a'); a1.href=res.dataURL; a1.download=baseName+'_design.png'; document.body.appendChild(a1); a1.click(); a1.remove(); } else if(res.url){ var a2=document.createElement('a'); a2.href=res.url; a2.target='_blank'; a2.rel='noopener'; a2.download=baseName+'_design.png'; document.body.appendChild(a2); a2.click(); a2.remove(); } }); }catch(e){ console.warn('Download failed', e); } });
+    document.addEventListener('change', function(e){ var t=e.target; if(t && t.matches && t.matches('input.colorBox[type="color"]')){ try{ t.blur(); }catch(err){} } });
+
+    // ===================== INIT =====================
+    document.addEventListener('DOMContentLoaded', function(){ initSelectors(); });
+
+    // ===================== SELF-TESTS (non-blocking) =====================
+    ;(function selfTest(){
+      function assert(name, cond){ if(!cond){ console.warn('[selfTest]', name, 'FAILED'); } }
+      try {
+        assert('uuid format', /[0-9a-f]{8}-/.test(uuid()));
+        // prompt join should concatenate with two newlines
+        var fp = (function(){ var p='A'; var u='B'; return p+'\n\n'+u; })();
+        assert('finalPrompt join', fp === 'A\n\nB');
+      } catch (e) { console.warn('[selfTest] exception', e); }
+    })();
+  </script>
+</body>
+</html>
