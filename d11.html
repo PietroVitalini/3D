@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sketchfab 3D Configurator — v17.2 (Fixed‑Palette + Stable History)</title>
+  <title>Sketchfab 3D Configurator — v16.1 (Syntax-Fixed, Stable History Texturing)</title>
   <style>
     :root{
       --text:#0b0f19; --muted:#334155; --accent:#93c5fd; --glass:#eaf3ffcc; --glass-border:#93c5fd; --input-border:rgba(148,163,184,.5);
@@ -11,52 +11,33 @@
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;overflow:hidden;color:var(--text);font:15px/1.5 system-ui, Segoe UI, Roboto, Helvetica, Arial;background:url('https://images.pexels.com/photos/209955/pexels-photo-209955.jpeg?cs=srgb&dl=pexels-pixabay-209955.jpg&fm=jpg') center/cover fixed no-repeat}
-
-    /* Viewer never goes behind the panel */
-    .viewer-root{position:fixed;inset:0;z-index:1}
+    .viewer-root{position:fixed;inset:0;z-index:1;right:0}
     .viewer-root iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent}
-
-    /* Control panel floats above */
     .panel{position:fixed;top:0;right:0;width:min(380px,92vw);height:100vh;overflow-y:auto;z-index:2;padding:18px 14px 20px;background:transparent}
-    .card{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;backdrop-filter:blur(6px) saturate(160%);-webkit-backdrop-filter:blur(6px) saturate(160%);box-shadow:0 8px 30px rgba(15,23,42,.12)}
+    .card{background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;padding:12px 12px 14px;margin:12px 0;backdrop-filter:blur(8px) saturate(160%);-webkit-backdrop-filter:blur(8px) saturate(160%);box-shadow:0 8px 30px rgba(15,23,42,.12)}
     .card h2{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--text);letter-spacing:.2px}
     .brand{display:block;max-width:100%;height:auto;margin:0 0 8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
-
     .row{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}
     label{min-width:92px;color:var(--text)}
-    select, textarea{width:100%}
-
+    select,input[type="text"],input[type="email"],textarea{width:100%}
     textarea#prompt{width:100%;display:block;resize:none;min-height:110px;border:1px solid var(--input-border);border-radius:12px;background:#fff;color:var(--text);padding:12px;outline:none;overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
     textarea#prompt::-webkit-scrollbar{width:0;height:0}
-
-    /* White modern selects */
     select{appearance:none;-webkit-appearance:none;background:#fff;border:1px solid var(--input-border);border-radius:10px;color:var(--text);padding:10px 36px 10px 12px;line-height:1.2;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6" fill="none" stroke="%230b0f19" stroke-width="2"/></svg>');background-repeat:no-repeat;background-position:right 10px center}
     select:focus{outline:none;box-shadow:0 0 0 3px rgba(147,197,253,.35);border-color:var(--accent)}
-
-    /* Buttons full width in their row */
     button{padding:10px 12px;border:1px solid var(--input-border);border-radius:10px;background:linear-gradient(180deg,#ffffff,#f5f9ff);color:var(--text);cursor:pointer;box-shadow:0 2px 0 rgba(255,255,255,.6) inset,0 8px 20px rgba(15,23,42,.08)}
     button:disabled{opacity:.5;cursor:not-allowed}
     .button--loading{position:relative;pointer-events:none;padding-right:36px}
     .button--loading::after{content:"";position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);border-top-color:transparent;animation:spin .8s linear infinite}
     @keyframes spin{to{transform:translateY(-50%) rotate(360deg)}}
     #genBtn,#dlBtn{display:block;width:100%;flex:1 1 100%}
-
     .navRow{display:grid;grid-template-columns:1fr 140px 1fr;gap:8px;align-items:center}
     #indexBox{width:100%;height:44px;text-align:center;border:1px solid var(--input-border);border-radius:10px;background:#fff;color:var(--text);padding:0 8px;font-weight:700;letter-spacing:.3px}
-
+    input[type="color"].colorBox{-webkit-appearance:none;appearance:none;border:1px solid var(--input-border);border-radius:6px;width:48px;height:28px;padding:0;background:#fff;cursor:pointer}
+    input[type="color"].colorBox::-webkit-color-swatch-wrapper{padding:0}
+    input[type="color"].colorBox::-webkit-color-swatch{border:none;border-radius:6px}
     .hint{color:#1f2937;font-size:12px;margin-top:6px}
     .error{color:#ef4444;font-size:12px;margin-top:6px}
-  </style>
-
-  <!-- Fallback chrome for the palette picker host before it's defined -->
-  <style>
-    mini-color-picker{ --w:100%; --h:36px; display:inline-block; }
-    mini-color-picker:not(:defined){
-      width:100%; height:36px;
-      border:1px solid rgba(148,163,184,.5);
-      border-radius:12px; background:rgba(255,255,255,.85);
-      box-shadow:0 10px 30px rgba(0,0,0,.06);
-    }
+    .guard{position:fixed;inset:auto auto 12px 12px;z-index:3;pointer-events:none;font-size:11px;color:#0b0f19;opacity:.0}
   </style>
 </head>
 <body>
@@ -90,452 +71,168 @@
     </section>
   </aside>
 
-  <!-- Mini fixed‑palette color picker (framework‑free Web Component) -->
-  <script>
-  (function(){
-    function toArr(x){ return Array.prototype.slice.call(x||[]); }
-    class MiniColorPicker extends HTMLElement{
-      static get observedAttributes(){ return ['value','size','data-colors','drop']; }
-      constructor(){
-        super();
-        this._colors = [{name:'white',value:'#FFFFFF'}];
-        this._index = 0; this._open = false;
-        this._boundDocPointer = (e)=>this._onDocPointer(e);
-        this._boundReposition = ()=>this._placePanel();
-        this.attachShadow({mode:'open'});
-        this.shadowRoot.innerHTML = `
-          <style>
-            :host{ display:inline-block; position:relative; width:var(--w,180px); font:12px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial; color:#0b0f19; }
-            :host([size="md"]) { --h:40px; }
-            :host([size="lg"]) { --h:44px; }
-            .t{ --r:12px; --bd:#e5e7eb; --ring:#3b82f6; --bg:rgba(255,255,255,.75); --shadow:0 12px 32px rgba(0,0,0,.08); }
-            .trigger{ all:unset; box-sizing:border-box; display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; height:var(--h,36px); padding:6px 10px; border:1px solid var(--bd); border-radius:var(--r); background:var(--bg); backdrop-filter:saturate(1.15) blur(8px); cursor:pointer; box-shadow:inset 0 0 0 1px rgba(255,255,255,.3); }
-            .trigger:focus-visible{ outline:2px solid var(--ring); outline-offset:2px; }
-            .label{ font-size:12px; letter-spacing:.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-            .swatch{ width:18px; height:18px; border-radius:6px; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15); background:var(--sw); flex:0 0 18px; }
-            .chev{ width:12px; height:12px; margin-left:4px; opacity:.6; transform:rotate(0deg); transition:transform .18s ease; }
-            :host([open]) .chev{ transform:rotate(180deg); }
-            .panel{ position:absolute; z-index:999; left:0; top:calc(100% + 8px); width:100%; padding:6px; border:1px solid var(--bd); border-radius:14px; background:var(--bg); backdrop-filter:saturate(1.2) blur(12px); box-shadow:var(--shadow); transform-origin:top center; transition:opacity .14s ease, transform .14s ease; max-height:320px; overflow:auto; }
-            .panel[data-placement="top"]{ top:auto; bottom:calc(100% + 8px); transform-origin:bottom center; }
-            .panel[data-state="closed"]{ opacity:0; transform:translateY(-6px) scale(.98); pointer-events:none; }
-            .panel[data-state="closed"][data-placement="top"]{ transform:translateY(6px) scale(.98); }
-            .panel[data-state="open"]{ opacity:1; transform:translateY(0) scale(1); }
-            .list{ display:flex; flex-direction:column; gap:6px; }
-            .item{ all:unset; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:10px; cursor:pointer; }
-            .item[aria-selected="true"]{ outline:2px solid rgba(59,130,246,.35); }
-            .item:hover{ background:rgba(15,23,42,.05); }
-            .item:focus-visible{ outline:2px solid #3b82f6; outline-offset:2px; }
-          </style>
-          <div class="t">
-            <button class="trigger" id="trigger" type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="list">
-              <span class="label" id="selLabel">white</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="swatch" id="selSw" style="--sw:#FFFFFF"></span>
-                <svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-              </div>
-            </button>
-            <div class="panel" id="panel" data-state="closed" role="presentation">
-              <div class="list" id="list" role="listbox" tabindex="-1"></div>
-            </div>
-          </div>`;
-      }
-      connectedCallback(){
-        this._applyCustomColors();
-        this._renderList();
-        var v=this.getAttribute('value'); if(v) this.value=v;
-        this._syncTrigger();
-        var trig=this.shadowRoot.getElementById('trigger');
-        var panel=this.shadowRoot.getElementById('panel');
-        if(trig){ trig.addEventListener('click', ()=>this._toggle()); trig.addEventListener('keydown', (e)=>this._onTriggerKey(e)); }
-        if(panel){ panel.addEventListener('keydown', (e)=>this._onPanelKey(e)); }
-      }
-      disconnectedCallback(){
-        window.removeEventListener('pointerdown', this._boundDocPointer, true);
-        window.removeEventListener('resize', this._boundReposition);
-        window.removeEventListener('scroll', this._boundReposition, true);
-      }
-      attributeChangedCallback(name, oldV, newV){
-        if(oldV===newV) return;
-        if(name==='data-colors'){ this._applyCustomColors(); this._index=0; this._renderList(); this._syncTrigger(); this._fire(); }
-        if(name==='value'){ this.value = newV; }
-        if(name==='drop' && this._open){ this._placePanel(); }
-      }
-      get colors(){ return this._colors.slice(); }
-      get value(){ return (this._colors[this._index]||{}).value; }
-      set value(hex){ if(!hex) return; var i=-1; for(var k=0;k<this._colors.length;k++){ if(String(this._colors[k].value).toLowerCase()===String(hex).toLowerCase()){ i=k; break; } } if(i!==-1){ this._index=i; this._syncListSelection(); this._syncTrigger(); this._fire(); } }
-      get selection(){ var c=this._colors[this._index]||{}; return { index:this._index, name:c.name, value:c.value }; }
-
-      _applyCustomColors(){
-        var raw=this.getAttribute('data-colors'); if(!raw) return;
-        var parts=raw.split(','); var parsed=[];
-        for(var i=0;i<parts.length;i++){ var s=String(parts[i]||'').trim(); if(!s) continue; var x=s.split(':'); if(x.length>=2){ parsed.push({ name:x[0].trim(), value:x[1].trim() }); } }
-        if(parsed.length) this._colors = parsed;
-      }
-      _renderList(){
-        var list=this.shadowRoot.getElementById('list'); if(!list) return; list.innerHTML='';
-        for(var i=0;i<this._colors.length;i++){
-          var c=this._colors[i]; var btn=document.createElement('button'); btn.type='button'; btn.className='item'; btn.setAttribute('role','option'); btn.setAttribute('aria-selected', String(i===this._index)); btn.dataset.index=String(i);
-          btn.innerHTML = '<span class="label">'+c.name+'</span><span class="swatch" style="--sw:'+c.value+'"></span>';
-          btn.addEventListener('click', ()=>{ this._select(parseInt(btn.dataset.index,10)); this._close(); });
-          list.appendChild(btn);
-        }
-      }
-      _syncListSelection(){ var items=this.shadowRoot.querySelectorAll('.item'); for(var i=0;i<items.length;i++){ items[i].setAttribute('aria-selected', String(i===this._index)); } }
-      _syncTrigger(){ var c=this._colors[this._index]||{name:'white',value:'#FFFFFF'}; var lab=this.shadowRoot.getElementById('selLabel'); var sw=this.shadowRoot.getElementById('selSw'); if(lab) lab.textContent=c.name; if(sw) sw.style.setProperty('--sw', c.value); }
-      _toggle(){ if(this._open) this._close(); else this._openPanel(); }
-      _openPanel(){ if(this._open) return; this._open=true; this.setAttribute('open',''); var p=this.shadowRoot.getElementById('panel'); var t=this.shadowRoot.getElementById('trigger'); if(p){ p.setAttribute('data-state','open'); } if(t){ t.setAttribute('aria-expanded','true'); } window.addEventListener('pointerdown', this._boundDocPointer, true); window.addEventListener('resize', this._boundReposition); window.addEventListener('scroll', this._boundReposition, true); this._placePanel(); var btns=this.shadowRoot.querySelectorAll('.item'); if(btns && btns[this._index]) btns[this._index].focus(); }
-      _close(){ if(!this._open) return; this._open=false; this.removeAttribute('open'); var p=this.shadowRoot.getElementById('panel'); var t=this.shadowRoot.getElementById('trigger'); if(p){ p.setAttribute('data-state','closed'); } if(t){ t.setAttribute('aria-expanded','false'); } window.removeEventListener('pointerdown', this._boundDocPointer, true); window.removeEventListener('resize', this._boundReposition); window.removeEventListener('scroll', this._boundReposition, true); var trg=this.shadowRoot.getElementById('trigger'); if(trg) trg.focus(); }
-      _placePanel(){ var panel=this.shadowRoot.getElementById('panel'); if(!panel) return; var mode=String(this.getAttribute('drop')||'auto').toLowerCase(); var gap=8; var rect=this.getBoundingClientRect(); var vpH=window.innerHeight || document.documentElement.clientHeight; var spaceBelow=vpH - rect.bottom - gap; var spaceAbove=rect.top - gap; var desired=Math.min(320, panel.scrollHeight || 320); var placeTop; if(mode==='up') placeTop=true; else if(mode==='down') placeTop=false; else placeTop = (spaceBelow < Math.min(desired,180)) && (spaceAbove > spaceBelow); panel.setAttribute('data-placement', placeTop ? 'top' : 'bottom'); var maxH=Math.max(120, Math.min(320, placeTop?spaceAbove:spaceBelow)); panel.style.maxHeight = (isFinite(maxH)?maxH:320)+'px'; }
-      _onDocPointer(e){ var path=e.composedPath?e.composedPath():[]; var inside=false; for(var i=0;i<path.length;i++){ if(path[i]===this){ inside=true; break; } } if(!inside) this._close(); }
-      _onTriggerKey(e){ var k=e.key||e.code; if(k==='ArrowDown'||k==='ArrowUp'||k==='Enter'||k===' '){ e.preventDefault(); this._openPanel(); } }
-      _onPanelKey(e){ var k=e.key||e.code; var max=this._colors.length-1; if(k==='Escape'){ e.preventDefault(); this._close(); return; } if(k==='ArrowDown'){ e.preventDefault(); this._move(Math.min(max, this._index+1)); return; } if(k==='ArrowUp'){ e.preventDefault(); this._move(Math.max(0, this._index-1)); return; } if(k==='Enter'||k===' '){ e.preventDefault(); this._select(this._index); this._close(); return; } }
-      _move(i){ this._index=i; this._syncListSelection(); var btns=this.shadowRoot.querySelectorAll('.item'); if(btns && btns[i]) btns[i].focus(); this._syncTrigger(); }
-      _select(i){ if(i===this._index){ this._fire(); return; } this._index=i; this._syncListSelection(); this._syncTrigger(); this._fire(); }
-      _fire(){ var c=this._colors[this._index]||{}; this.dispatchEvent(new CustomEvent('colorchange', {bubbles:true, composed:true, detail:{ index:this._index, name:c.name, value:c.value }})); }
-    }
-    window.customElements.define('mini-color-picker', MiniColorPicker);
-  })();
-  </script>
+  <div class="guard" id="guardLog">viewer boot…</div>
 
   <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
   <script>
-    // ===================== CONFIG =====================
+    // ===== CONFIG =====
     var API_BASE = 'https://google2.faster-551.workers.dev';
     var ENDPOINTS = {
       LEGACY_GENERATE: API_BASE + '/api/generate-gemini',
       SAVE:            API_BASE + '/api/save',
       MY_IMAGES:       API_BASE + '/api/my-images',
-      FILE:            API_BASE + '/api/file'
+      FILE:            API_BASE + '/api/file',
+      IMAGE_B64:       API_BASE + '/api/image-b64'
     };
-
-    var BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/vitalini-designer/refs/heads/main/assets/models/VP9655Bianca8.png';
-    var PREPROMPT = 'Create Image texture, keep 1:1 shape and size. Each part\'s design should be self-contained. Keep in mind final product will not be as crisp as 2D. User design request: ';
-
+    var BASE_IMAGE_URL = 'https://raw.githubusercontent.com/PietroVitalini/3D/refs/heads/main/assets/models/VP9655Bianca12Final.png';
+    var PREPROMPT = 'Create Image texture, keep 1:1 shape and size. Keep in mind final product will not be as crisp as 2D. User design request: ';
     var CATALOG = {
       'Jackets': [
-        {
-          id: 'VP9655', name: 'VP9655', uid: 'eea360f7606149deaf75345b1df3f519',
-          designMat: 'Giacca1_FRONT_2563',
-          baseImage: BASE_IMAGE_URL,
-          colors: [
-            { label: 'Contrast', material: 'Contrasto_FRONT_2545' },
-            { label: 'Zipper',   material: 'Zipper__Velcro_FRONT_2559' }
-          ]
-        }
+        { id:'VP9655', name:'VP9655', uid:'81627c97044d48c48acf09dc4dd81aae', designMat:'Giacca1_FRONT_2563', baseImage:BASE_IMAGE_URL,
+          colors:[ {label:'Contrast', material:'Contrasto_FRONT_2545'}, {label:'Zipper', material:'Zipper__Velcro_FRONT_2559'} ] }
       ],
-      'Race suits': [],
-      'Ski pants':  [],
-      'Vests':      []
+      'Race suits': [], 'Ski pants': [], 'Vests': []
     };
 
-    // Fixed palette (exact list provided)
-    var PALETTE = [
-      {name:'white',value:'#FFFFFF'}, {name:'antracite',value:'#394D55'}, {name:'grey',value:'#ABACAA'}, {name:'dark blue',value:'#00183F'},
-      {name:'capri',value:'#283484'}, {name:'marine',value:'#0966A7'}, {name:'azzurro',value:'#00B4DC'}, {name:'amalfi',value:'#08A8AC'},
-      {name:'verde',value:'#027039'}, {name:'verde oliva',value:'#6D7E27'}, {name:'verde acido',value:'#92F28C'}, {name:'verde fluo',value:'#93C55F'},
-      {name:'purple',value:'#822F8C'}, {name:'amaranto',value:'#A90056'}, {name:'pink fluo',value:'#EC008B'}, {name:'limoncello',value:'#DFE915'},
-      {name:'limone',value:'#FFF100'}, {name:'sole',value:'#F7DF18'}, {name:'zafferano',value:'#FFC507'}, {name:'orange',value:'#F37120'},
-      {name:'red',value:'#ED1B23'}, {name:'burgundy',value:'#84002C'}
-    ];
-    function paletteString(){ var arr=[]; for(var i=0;i<PALETTE.length;i++){ arr.push(PALETTE[i].name+':'+PALETTE[i].value); } return arr.join(', '); }
-    function inPalette(hex){ if(!hex) return false; var h=String(hex).toLowerCase(); for(var i=0;i<PALETTE.length;i++){ if(PALETTE[i].value.toLowerCase()===h) return true; } return false; }
-
-    // ===================== STATE =====================
-    var api = null;
-    var currentModel = null;
-    var materialsByName = new Map();
-
-    // Server-backed history
-    var serverItems = [];
-    var serverIndex = 0; // 0-based
-
-    // In-memory b64 caches (session only)
-    var sessionImagesById  = new Map(); // id  -> dataURL
-    var sessionImagesByUrl = new Map(); // url -> dataURL
+    // ===== STATE =====
+    var api = null, currentModel = null, materialsByName = new Map();
+    var iframe = document.getElementById('api-frame');
+    var serverItems = [], serverIndex = 0; // oldest-first array
+    var sessionImages = new Map(); // id -> dataURL for local fallback
 
     // DOM
-    var iframe   = document.getElementById('api-frame');
-    var typeSel  = document.getElementById('typeSelect');
+    var typeSel = document.getElementById('typeSelect');
     var modelSel = document.getElementById('modelSelect');
-
     var promptEl = document.getElementById('prompt');
-    var genBtn   = document.getElementById('genBtn');
-    var prevBtn  = document.getElementById('prevBtn');
-    var nextBtn  = document.getElementById('nextBtn');
-    var dlBtn    = document.getElementById('dlBtn');
+    var genBtn = document.getElementById('genBtn');
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var dlBtn = document.getElementById('dlBtn');
     var indexBox = document.getElementById('indexBox');
     var errorBox = document.getElementById('errorBox');
-
     var colorsGroup = document.getElementById('colorsGroup');
     var colorsContainer = document.getElementById('colorsContainer');
+    var guard = document.getElementById('guardLog');
 
-    // ===================== UTIL =====================
-    function showError(msg){ if(!errorBox) return; errorBox.textContent = msg; errorBox.style.display = msg? 'block':'none'; }
+    // ===== UTIL =====
+    function logGuard(msg){ try{ guard.textContent = String(msg); }catch(e){} }
+    function showError(msg){ errorBox.textContent = msg; errorBox.style.display = msg ? 'block' : 'none'; }
     function clearError(){ showError(''); }
     function norm(s){ return (s||'').trim().toLowerCase(); }
     function baseColorChannel(mat){ var ch = mat.channels||{}; return ch.AlbedoPBR?'AlbedoPBR': ch.DiffusePBR?'DiffusePBR': ch.DiffuseColor?'DiffuseColor': ch.BaseColor?'BaseColor': ch.AlbedoColor?'AlbedoColor':'AlbedoPBR'; }
-    function hexToRGBNorm(hex){ var h=String(hex||'').replace('#',''); var i=parseInt(h,16); if(isNaN(i)) return [1,1,1]; return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
-    function rgbNormToHex(arr){ function toHex(v){ return ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2); } return '#'+toHex(arr[0]||0)+toHex(arr[1]||0)+toHex(arr[2]||0); }
-    function findMaterial(name){ if(!name) return null; var exact = materialsByName.get(name); if(exact) return exact; var lname=norm(name); var it; for(it of materialsByName){ if(norm(it[0])===lname) return it[1]; } for(it of materialsByName){ if(norm(it[0]).indexOf(lname)>=0) return it[1]; } return null; }
-    function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r = crypto.getRandomValues(new Uint8Array(1))[0] & 15; var v=c==='x'?r:(r&0x3|0x8); return v.toString(16); }); }
+    function hexToRGBNorm(hex){ var h=hex.replace('#',''); var i=parseInt(h,16); return [((i>>16)&255)/255, ((i>>8)&255)/255, (i&255)/255]; }
+    function rgbNormToHex(arr){ function toHex(v){ return ('0'+Math.max(0,Math.min(255,Math.round(v*255))).toString(16)).slice(-2);} return '#' + toHex(arr[0]||0)+toHex(arr[1]||0)+toHex(arr[2]||0); }
+    function findMaterial(name){ if(!name) return null; var exact=materialsByName.get(name); if(exact) return exact; var lname=norm(name); var it; for(it of materialsByName){ if(norm(it[0])===lname) return it[1]; } for(it of materialsByName){ if(norm(it[0]).indexOf(lname)>=0) return it[1]; } return null; }
+    function uuid(){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){ var r=crypto.getRandomValues(new Uint8Array(1))[0] & 15; var v=c==='x'?r:(r&0x3|0x8); return v.toString(16); }); }
     function getUserId(){ var KEY='vitalini_uid_v1', OLD='vd_user'; var id=localStorage.getItem(KEY); if(!id){ id=localStorage.getItem(OLD) || uuid(); localStorage.setItem(KEY,id);} return id; }
-
-    function fetchAsDataURL(url){
-      return fetch(url, { cache:'no-store' })
-        .then(function(r){ if(!r.ok) throw new Error('Failed to fetch image ('+r.status+')'); return r.blob(); })
-        .then(function(b){ return new Promise(function(res){ var fr=new FileReader(); fr.onload=function(){ res(fr.result); }; fr.readAsDataURL(b); }); });
-    }
+    function fetchAsDataURL(url){ return fetch(url,{cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); }).then(function(b){ return new Promise(function(res){ var fr=new FileReader(); fr.onload=function(){ res(fr.result); }; fr.readAsDataURL(b); }); }); }
     function dataURLToBlob(dataURL){ return fetch(dataURL).then(function(res){ return res.blob(); }); }
-    function fetchDataURLViaProxy(url){
-      var endpoint = ENDPOINTS.FILE + '?url=' + encodeURIComponent(url) + '&as=dataurl=1';
-      return fetch(endpoint, { cache:'no-store' })
-        .then(function(res){ if(!res.ok) throw new Error('Proxy fetch failed ('+res.status+')'); return res.json(); })
-        .then(function(j){ return (j && j.dataUrl) ? j.dataUrl : null; });
-    }
-    function cacheDataUrlForItem(item, dataURL){ try{ if(item && item.id){ sessionImagesById.set(item.id, dataURL);} if(item && item.url){ sessionImagesByUrl.set(item.url, dataURL);} }catch(e){} }
-    function getCachedDataURL(item){ if(!item) return null; if(item.id && sessionImagesById.has(item.id)) return sessionImagesById.get(item.id); if(item.url && sessionImagesByUrl.has(item.url)) return sessionImagesByUrl.get(item.url); return null; }
 
-    // ===================== SELECTORS =====================
-    function initSelectors(){
-      var types = Object.keys(CATALOG).map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
-      typeSel.innerHTML = types; typeSel.value = 'Jackets'; populateModels();
-      typeSel.addEventListener('change', populateModels);
-      modelSel.addEventListener('change', function(){ switchModel(modelSel.value); });
-    }
-    function populateModels(){
-      var t = typeSel.value; var list = CATALOG[t] || [];
-      modelSel.innerHTML = list.map(function(m){ return '<option value="'+m.id+'">'+m.name+'</option>'; }).join('');
-      if(list.length){ switchModel(list[0].id); } else { resetViewerAndUI(); }
-    }
-    function modelById(id){ var t=typeSel.value; var list=(CATALOG[t]||[]); for(var i=0;i<list.length;i++){ if(list[i].id===id) return list[i]; } return null; }
-    function resetViewerAndUI(){ currentModel=null; colorsGroup.style.display='none'; indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; if(iframe) iframe.src='about:blank'; materialsByName=new Map(); api=null; serverItems=[]; serverIndex=0; clearError(); }
-    function switchModel(modelId){ var m=modelById(modelId); if(!m) return; currentModel=m; renderColors(); initViewerForModel(m.uid); }
+    // Normalize/clean data URL (remove whitespace/newlines from base64)
+    function cleanDataUrl(du){ try{ if(!du) return du; if(String(du).slice(0,5)!=='data:'){ return 'data:image/png;base64,' + String(du).replace(/^data:[^,]+,/, '').replace(/\s+/g,''); } var parts=String(du).split(','); if(parts.length<2) return du; parts[1]=parts[1].replace(/\s+/g,''); return parts[0]+','+parts[1]; }catch(e){ return du; } }
 
-    function renderColors(){
-      colorsContainer.innerHTML=''; var cols=(currentModel && currentModel.colors)||[];
-      if(!cols.length){ colorsGroup.style.display='none'; return; }
-      colorsGroup.style.display='block';
-      for(var i=0;i<cols.length;i++){
-        (function(c, idx){
-          var row=document.createElement('div'); row.className='row';
-          var lab=document.createElement('label'); lab.textContent=c.label || ('Color '+(idx+1)); row.appendChild(lab);
-          var picker=document.createElement('mini-color-picker');
-          picker.setAttribute('style','--w:100%; --h:36px');
-          picker.setAttribute('data-colors', paletteString());
-          row.appendChild(picker);
-          colorsContainer.appendChild(row);
-          picker.addEventListener('colorchange', function(e){ var v=(e && e.detail && e.detail.value) ? e.detail.value : '#FFFFFF'; applyColor(c.material, v); });
-        })(cols[i], i);
-      }
-    }
-
-    // ===================== VIEWER =====================
-    function initViewerForModel(uid){
-      var parent=iframe?iframe.parentNode:null; var newIframe=iframe?iframe.cloneNode():document.createElement('iframe'); if(parent){ parent.replaceChild(newIframe, iframe); } iframe=newIframe;
-      window.requestAnimationFrame(function(){
-        materialsByName=new Map(); api=null; clearError();
-        var client=new Sketchfab('1.12.1', newIframe);
-        client.init(uid, {
-          autostart:1, preload:1, dnt:1, camera:0, transparent:1, ui_controls:1,
-          ui_infos:0, ui_help:0, ui_settings:0, ui_inspector:0, ui_ar:0, ui_vr:0, ui_annotations:0, ui_animations:0, ui_stop:0,
-          ui_watermark:0, ui_watermark_link:0,
-          success:function(apiHandle){
-            api=apiHandle; api.start();
-            api.addEventListener('viewerready', function(){
-              if(api.setBackground){ api.setBackground({ transparent:true, color:[0,0,0,0] }, function(){}); }
-              api.getMaterialList(function(err, mats){
-                if(err){ console.warn('getMaterialList error', err); return; }
-                materialsByName.clear(); mats.forEach(function(m){ materialsByName.set(m.name, m); });
-                // Sync pickers to current material color if it matches palette
-                var pickers = colorsContainer.querySelectorAll('mini-color-picker');
-                for(var k=0;k<pickers.length;k++){
-                  var el=pickers[k]; var matName=(currentModel.colors[k]||{}).material; var mat=findMaterial(matName);
-                  if(mat){ var ch=(mat.channels||{})[baseColorChannel(mat)]||{}; if(ch && ch.color && Object.prototype.toString.call(ch.color)==='[object Array]'){
-                    var hex=rgbNormToHex(ch.color); if(inPalette(hex)) el.setAttribute('value', hex);
-                  } }
-                }
-                // Load persisted images
-                loadServerHistory(currentModel.id).then(function(){ if(serverItems.length){ serverIndex = serverItems.length-1; applyCurrentFromServer(); } else { hydrateLocalLatest(); } });
-              });
-            });
-          },
-          error:function(){ console.error('Sketchfab init failed'); showError('Viewer failed to initialize'); }
-        });
-      });
-    }
-
-    // ===================== COLOR APPLY =====================
-    function applyColor(matName, hex){
-      var mat=findMaterial(matName); if(!api || !mat) return;
-      var channel=baseColorChannel(mat); var rgb=hexToRGBNorm(hex);
-      mat.channels=Object.assign({}, mat.channels);
-      var ch=Object.assign({}, mat.channels[channel]||{});
-      ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.color=rgb;
-      if('texture' in ch) delete ch.texture;
-      mat.channels[channel]=ch;
-      api.setMaterial(mat, function(err){ if(err) console.warn('setMaterial color error', err); });
-    }
-
-    // ===================== GENERATION (UNCHANGED CALL) =====================
-    function doGenerate(){
-      var userPrompt=(promptEl.value||'').trim(); if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; }
-      var modelPre=(currentModel && currentModel.preprompt) || PREPROMPT; var finalPrompt=modelPre ? (modelPre + "
-
-" + userPrompt) : userPrompt; clearError();
-      var prevText=genBtn.textContent; genBtn.textContent='Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true');
-      genBtn.disabled=true; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true;
-
-      tryStartGeneration(finalPrompt)
-        .then(function(j){ return j.dataUrl ? j.dataUrl : fetchAsDataURL(j.url || j.imageUrl); })
-        .then(function(dataURL){ return applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ return dataURL; }); })
-        .then(function(dataURL){
-          return persistGenerated(dataURL, currentModel.id, userPrompt)
-            .then(function(saved){
-              if (saved) {
-                cacheDataUrlForItem(saved, dataURL);
-                serverItems.push(saved);
-                serverIndex = serverItems.length - 1;
-                updateIndexUI();
-              } else {
-                var item = pushLocalHistoryItem(userPrompt, dataURL);
-                updateLocalIndexFromArr(loadLocalHistory());
-              }
-            });
+    // Proxy-friendly loader for b64 (fixes CORS)
+    function getDataURLForUrl(url){
+      var fileUrl = ENDPOINTS.FILE + '?url=' + encodeURIComponent(url) + '&as=dataurl=1';
+      return fetch(fileUrl, { cache:'no-store' })
+        .then(function(r){ if(!r.ok) throw new Error('file-proxy '+r.status); return r.json(); })
+        .then(function(j){
+          var du = j && (j.dataUrl || j.data_url || (j.b64 ? ('data:image/png;base64,'+j.b64) : null));
+          if(!du) throw new Error('file-proxy no data');
+          return cleanDataUrl(du);
         })
-        .catch(function(e){ console.error(e); showError((e && e.message)? e.message : 'Error'); })
-        .finally(function(){ genBtn.textContent=prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy'); genBtn.disabled=false; updateIndexUI(); });
+        .catch(function(){
+          var prox = ENDPOINTS.IMAGE_B64 + '?url=' + encodeURIComponent(url);
+          return fetch(prox, { cache:'no-store' })
+            .then(function(r){ if(!r.ok) throw new Error('image-b64 '+r.status); return r.json(); })
+            .then(function(j){
+              var du = j && (j.data_url || j.dataUrl || (j.b64 ? ('data:image/png;base64,'+j.b64) : null));
+              if(!du) throw new Error('image-b64 no data');
+              return cleanDataUrl(du);
+            })
+            .catch(function(){
+              return fetchAsDataURL(url).then(cleanDataUrl);
+            });
+        });
     }
 
-    function tryStartGeneration(prompt){
-      var baseUrl=(currentModel && currentModel.baseImage) || BASE_IMAGE_URL;
-      return fetch(baseUrl, { cache:'no-store' })
-        .then(function(baseResp){ if(!baseResp.ok) throw new Error('Failed to load base image ('+baseResp.status+')'); return baseResp.blob(); })
-        .then(function(baseBlob){ var fd=new FormData(); fd.append('prompt', prompt); fd.append('size','1024x1024'); fd.append('user_id', getUserId()); fd.append('image', baseBlob, 'base.png'); return fetch(ENDPOINTS.LEGACY_GENERATE, { method:'POST', body: fd }); })
-        .then(function(resp){ if(!resp.ok) return resp.text().then(function(t){ throw new Error(resp.status+' '+resp.statusText+' '+t); }); return resp.json(); })
-        .then(function(data){ var b64=null; if(data && data.data && data.data[0] && data.data[0].b64_json){ b64=data.data[0].b64_json; } if(!b64) throw new Error('Backend OK but returned no image data'); return { dataUrl:'data:image/png;base64,'+b64 }; });
-    }
+    // ===== SELECTORS & MODEL =====
+    function initSelectors(){ var types=Object.keys(CATALOG).map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join(''); typeSel.innerHTML=types; typeSel.value='Jackets'; populateModels(); typeSel.addEventListener('change', populateModels); modelSel.addEventListener('change', function(){ switchModel(modelSel.value); }); }
+    function populateModels(){ var t=typeSel.value, list=CATALOG[t]||[]; modelSel.innerHTML=list.map(function(m){return '<option value="'+m.id+'">'+m.name+'</option>';}).join(''); if(list.length){ switchModel(list[0].id);} else { resetViewerAndUI(); } }
+    function modelById(id){ var t=typeSel.value, list=CATALOG[t]||[]; for(var i=0;i<list.length;i++){ if(list[i].id===id) return list[i]; } return null; }
 
-    function persistGenerated(dataURL, productModelId, userPrompt){
-      return dataURLToBlob(dataURL)
-        .then(function(blob){ var fd=new FormData(); fd.append('user_id', getUserId()); fd.append('model_id', productModelId); fd.append('prompt', userPrompt); fd.append('image', new File([blob], 'design.png', { type:'image/png' })); return fetch(ENDPOINTS.SAVE, { method:'POST', body: fd }); })
-        .then(function(res){ if(!res.ok) return null; return res.json().catch(function(){ return null; }); })
-        .then(function(json){ return (json && json.data && json.data[0]) ? json.data[0] : null; });
-    }
+    // ===== VIEWER BOOT =====
+    function hardResetIframe(){ var parent=iframe.parentNode; if(!parent) return; var fresh=document.createElement('iframe'); fresh.id='api-frame'; fresh.title='Sketchfab Viewer'; fresh.allow='autoplay; fullscreen; xr-spatial-tracking'; fresh.setAttribute('allowfullscreen','true'); fresh.setAttribute('xr-spatial-tracking',''); fresh.setAttribute('execution-while-out-of-viewport',''); fresh.setAttribute('execution-while-not-rendered',''); fresh.setAttribute('web-share',''); fresh.src='about:blank'; fresh.style.position='absolute'; fresh.style.inset='0'; fresh.style.width='100%'; fresh.style.height='100%'; fresh.style.border='0'; var root=document.getElementById('viewerRoot'); if(root){ root.replaceChild(fresh, iframe);} else { parent.replaceChild(fresh, iframe);} iframe=fresh; }
+    function bootViewer(uid){ logGuard('booting…'); hardResetIframe(); materialsByName=new Map(); api=null; clearError(); try{ iframe.src='https://sketchfab.com/models/'+encodeURIComponent(uid)+'/embed?ui_infos=0&ui_help=0&ui_settings=0&transparent=1&ui_watermark=0&ui_watermark_link=0'; }catch(e){}
+      var client=new Sketchfab('1.12.1', iframe); var readyFired=false; client.init(uid,{ autostart:1, preload:1, dnt:1, camera:0, transparent:1, ui_controls:1, ui_infos:0, ui_help:0, ui_settings:0, ui_inspector:0, ui_ar:0, ui_vr:0, ui_annotations:0, ui_animations:0, ui_stop:0, ui_watermark:0, ui_watermark_link:0, success:function(apiHandle){ api=apiHandle; api.start(); logGuard('api.start'); api.addEventListener('viewerready', function(){ readyFired=true; logGuard('viewerready'); if(api.setBackground){ api.setBackground({transparent:true}, function(){}); } api.getMaterialList(function(err,mats){ if(err){ console.warn('getMaterialList error',err); return; } materialsByName.clear(); mats.forEach(function(m){ materialsByName.set(m.name,m); }); var inps=colorsContainer.querySelectorAll('input[type="color"]'); for(var i=0;i<inps.length;i++){ var inp=inps[i]; var mat=findMaterial(inp.getAttribute('data-material')); if(mat){ var ch=(mat.channels||{})[baseColorChannel(mat)]||{}; if(ch && ch.color && Object.prototype.toString.call(ch.color)==='[object Array]'){ inp.value=rgbNormToHex(ch.color); } } } loadServerHistory(currentModel.id).then(function(){ if(serverItems.length){ serverIndex=serverItems.length-1; applyCurrentFromServer(); } else { hydrateLocalLatest(); } }); }); }); api.addEventListener('error', function(e){ console.warn('viewer error', e); showError('Viewer error.'); }); }, error:function(){ console.error('Sketchfab init failed'); showError('Viewer failed to initialize'); } }); setTimeout(function(){ if(!readyFired){ logGuard('fallback embed active'); } }, 4000); }
+    function resetViewerAndUI(){ currentModel=null; colorsGroup.style.display='none'; indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; try{ hardResetIframe(); }catch(e){} materialsByName=new Map(); api=null; serverItems=[]; serverIndex=0; clearError(); }
+    function switchModel(modelId){ var m=modelById(modelId); if(!m) return; currentModel=m; renderColors(); bootViewer(m.uid); }
 
-    // ===================== SERVER HISTORY =====================
-    function loadServerHistory(productModelId){
-      serverItems=[]; serverIndex=0; var uid=getUserId();
-      var url=ENDPOINTS.MY_IMAGES + '?user_id=' + encodeURIComponent(uid) + '&model_id=' + encodeURIComponent(productModelId) + '&limit=200';
-      return fetch(url, { cache:'no-store' })
-        .then(function(res){ if(!res.ok){ updateIndexUI(); return null; } return res.json(); })
-        .then(function(data){ if(!data) return; var newestFirst=(data.data||[]); serverItems=newestFirst.slice().reverse(); serverIndex=Math.max(0, serverItems.length-1); updateIndexUI(); })
-        .catch(function(e){ console.warn('loadServerHistory failed', e); serverItems=[]; serverIndex=0; updateIndexUI(); });
-    }
+    // ===== COLORS =====
+    function renderColors(){ colorsContainer.innerHTML=''; var cols=(currentModel && currentModel.colors)||[]; if(!cols.length){ colorsGroup.style.display='none'; try{ if(document.activeElement && document.activeElement.type==='color'){ document.activeElement.blur(); } }catch(e){} return; } colorsGroup.style.display='block'; cols.forEach(function(c,i){ var row=document.createElement('div'); row.className='row'; var lab=document.createElement('label'); lab.textContent=c.label||('Color '+(i+1)); row.appendChild(lab); var inp=document.createElement('input'); inp.type='color'; inp.className='colorBox'; inp.value='#ffffff'; inp.setAttribute('data-material', c.material); row.appendChild(inp); colorsContainer.appendChild(row); inp.addEventListener('input', function(){ applyColor(c.material, inp.value); }); inp.addEventListener('change', function(){ applyColor(c.material, inp.value); try{ inp.blur(); }catch(e){} }); }); }
+    function applyColor(matName, hex){ var mat=findMaterial(matName); if(!api || !mat) return; var channel=baseColorChannel(mat); var rgb=hexToRGBNorm(hex); mat.channels=Object.assign({},mat.channels); var ch=Object.assign({},mat.channels[channel]||{}); ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.color=rgb; if('texture' in ch) delete ch.texture; mat.channels[channel]=ch; api.setMaterial(mat,function(err){ if(err) console.warn('setMaterial color error',err); }); }
+
+    // ===== GENERATION =====
+    function doGenerate(){ var userPrompt=(promptEl.value||'').trim(); if(!userPrompt){ clearError(); showError('Enter a prompt first'); return; } var modelPre=(currentModel && currentModel.preprompt) || PREPROMPT; var finalPrompt=modelPre ? (modelPre + '\n\n' + userPrompt) : userPrompt; clearError(); var prevText=genBtn.textContent; genBtn.textContent='Generating…'; genBtn.classList.add('button--loading'); genBtn.setAttribute('aria-busy','true'); genBtn.disabled=true; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; tryStartGeneration(finalPrompt).then(function(j){ return j.dataUrl ? j.dataUrl : fetchAsDataURL(j.url||j.imageUrl); }).then(function(dataURL){ return applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ return dataURL; }); }).then(function(dataURL){ return persistGenerated(dataURL, currentModel.id, userPrompt).then(function(saved){ if(saved){ serverItems.push(saved); serverIndex=serverItems.length-1; updateIndexUI(); } else { pushLocalHistoryItem(userPrompt, dataURL); updateLocalIndexFromArr(loadLocalHistory()); } }); }).catch(function(e){ console.error(e); showError((e&&e.message)?e.message:'Error'); }).finally(function(){ genBtn.textContent=prevText; genBtn.classList.remove('button--loading'); genBtn.removeAttribute('aria-busy'); genBtn.disabled=false; updateIndexUI(); }); }
+    function tryStartGeneration(prompt){ var baseUrl=(currentModel && currentModel.baseImage) || BASE_IMAGE_URL; return fetch(baseUrl,{cache:'no-store'}).then(function(baseResp){ if(!baseResp.ok) throw new Error('Failed to load base image ('+baseResp.status+')'); return baseResp.blob(); }).then(function(baseBlob){ var fd=new FormData(); fd.append('prompt', prompt); fd.append('size','1024x1024'); fd.append('user_id', getUserId()); fd.append('image', baseBlob, 'base.png'); return fetch(ENDPOINTS.LEGACY_GENERATE, {method:'POST', body:fd}); }).then(function(resp){ if(!resp.ok) return resp.text().then(function(t){ throw new Error(resp.status+' '+resp.statusText+' '+t); }); return resp.json(); }).then(function(data){ var b64=null; if(data && data.data && data.data[0] && data.data[0].b64_json){ b64=data.data[0].b64_json; } if(!b64) throw new Error('Backend OK but returned no image data'); return { dataUrl:'data:image/png;base64,'+b64 }; }); }
+    function persistGenerated(dataURL, productModelId, userPrompt){ return dataURLToBlob(dataURL).then(function(blob){ var fd=new FormData(); fd.append('user_id', getUserId()); fd.append('model_id', productModelId); fd.append('prompt', userPrompt); fd.append('image', new File([blob], 'design.png', {type:'image/png'})); return fetch(ENDPOINTS.SAVE, {method:'POST', body:fd}); }).then(function(res){ if(!res.ok) return null; return res.json().catch(function(){ return null; }); }).then(function(json){ return (json && json.data && json.data[0]) ? json.data[0] : null; }); }
+
+    // ===== SERVER HISTORY =====
+    function loadServerHistory(productModelId){ serverItems=[]; serverIndex=0; var uid=getUserId(); var url=ENDPOINTS.MY_IMAGES+'?user_id='+encodeURIComponent(uid)+'&model_id='+encodeURIComponent(productModelId)+'&limit=200'; return fetch(url,{cache:'no-store'}).then(function(res){ if(!res.ok){ updateIndexUI(); return null; } return res.json(); }).then(function(data){ if(!data) return; var newestFirst=(data.data||[]); serverItems=newestFirst.slice().reverse(); serverIndex=Math.max(0, serverItems.length-1); updateIndexUI(); }).catch(function(e){ console.warn('loadServerHistory failed', e); serverItems=[]; serverIndex=0; updateIndexUI(); }); }
+
+    function applyTextureFromDataURL(matName, dataURL){ if(!api) return Promise.reject(new Error('Viewer not ready')); dataURL = cleanDataUrl(dataURL); return new Promise(function(resolve,reject){ api.addTexture(dataURL, function(err, texUid){ if(err){ console.warn('addTexture (dataURL) failed', err); reject(err); return; } api.getMaterialList(function(e, mats){ if(e){ reject(e); return; } materialsByName.clear(); for(var i=0;i<mats.length;i++){ materialsByName.set(mats[i].name, mats[i]); } var mat=findMaterial(matName); if(!mat){ reject(new Error('Material not available')); return; } var chName=baseColorChannel(mat); mat.channels=Object.assign({},mat.channels); var ch=Object.assign({},mat.channels[chName]||{}); ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.texture={uid:texUid}; ch.color=[1,1,1]; mat.channels[chName]=ch; api.setMaterial(mat,function(e2){ if(e2) reject(e2); else resolve(); }); }); }); }); }
+    function applyTextureFromUrlOrData(matName, url){ if(!api) return Promise.reject(new Error('Viewer not ready')); return new Promise(function(resolve,reject){ api.addTexture(url, function(err, texUid){ if(err){ reject(err); return; } api.getMaterialList(function(e, mats){ if(e){ reject(e); return; } materialsByName.clear(); for(var i=0;i<mats.length;i++){ materialsByName.set(mats[i].name, mats[i]); } var mat=findMaterial(matName); if(!mat){ reject(new Error('Material not available')); return; } var chName=baseColorChannel(mat); mat.channels=Object.assign({},mat.channels); var ch=Object.assign({},mat.channels[chName]||{}); ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.texture={uid:texUid}; ch.color=[1,1,1]; mat.channels[chName]=ch; api.setMaterial(mat,function(e2){ if(e2) reject(e2); else resolve('ok-url'); }); }); }); }).catch(function(){ return getDataURLForUrl(url).then(function(du){ return applyTextureFromDataURL(matName, du); }); }); }
 
     function applyCurrentFromServer(){
-      var it=serverItems[serverIndex]; if(!it){ updateIndexUI(); return; }
-      var cached=getCachedDataURL(it);
-      var chain = cached ? Promise.resolve(cached)
-                         : fetchDataURLViaProxy(it.url).catch(function(){ return null; }).then(function(d){ return d ? d : fetchAsDataURL(it.url); });
-      chain
-        .then(function(dataURL){ cacheDataUrlForItem(it, dataURL); return applyTextureFromDataURL(currentModel.designMat, dataURL); })
-        .then(function(){ promptEl.value = it.prompt || ''; dlBtn.disabled = false; updateIndexUI(); })
-        .catch(function(e){ console.warn('Texture fetch failed (CORS?)', e); showError('Could not load texture from storage. Check CORS or enable proxy.'); updateIndexUI(); });
+      var it = serverItems[serverIndex];
+      if(!it){ updateIndexUI(); return; }
+      getDataURLForUrl(it.url)
+        .then(function(dataURL){
+          return applyTextureFromDataURL(currentModel.designMat, dataURL);
+        })
+        .then(function(){
+          promptEl.value = it.prompt || '';
+          dlBtn.disabled = false;
+          clearError();
+          updateIndexUI();
+        })
+        .catch(function(e){
+          console.warn('History texture load via dataURL failed, trying direct URL once', e);
+          applyTextureFromUrlOrData(currentModel.designMat, it.url)
+            .then(function(){ clearError(); updateIndexUI(); })
+            .catch(function(e2){
+              console.warn('Texture load failed (both b64 + URL)', e2);
+              showError('Could not load texture from storage. Check CORS or enable proxy.');
+              updateIndexUI();
+            });
+        });
     }
+    function updateIndexUI(){ if(serverItems.length){ var total=serverItems.length; var pos=serverIndex+1; indexBox.value=pos+' / '+total; prevBtn.disabled=serverIndex<=0; nextBtn.disabled=serverIndex>=total-1; dlBtn.disabled=total===0; } else { var arr=loadLocalHistory(); var total2=arr.length; var pos2= total2 ? total2 : 0; indexBox.value=pos2+' / '+total2; prevBtn.disabled=total2<=1; nextBtn.disabled=true; dlBtn.disabled=total2===0; } }
 
-    function updateIndexUI(){
-      if (serverItems.length) {
-        var total=serverItems.length; var pos=serverIndex+1; indexBox.value = pos+' / '+total;
-        prevBtn.disabled = serverIndex <= 0; nextBtn.disabled = serverIndex >= total-1; dlBtn.disabled = total===0;
-      } else {
-        var arr=loadLocalHistory(); var total2=arr.length; var pos2= total2 ? total2 : 0; indexBox.value = pos2+' / '+total2; prevBtn.disabled = total2<=1; nextBtn.disabled=true; dlBtn.disabled = total2===0;
-      }
-    }
-
-    // ===================== LOCAL FALLBACK HISTORY =====================
+    // ===== LOCAL FALLBACK =====
     function getLocalHistKey(){ return currentModel ? ('vd_hist_'+currentModel.uid) : 'vd_hist_none'; }
     function loadLocalHistory(){ try{ var s=sessionStorage.getItem(getLocalHistKey()); return s?JSON.parse(s):[]; }catch(e){ return []; } }
     function saveLocalHistory(arr){ try{ sessionStorage.setItem(getLocalHistKey(), JSON.stringify(arr||[])); }catch(e){} }
-    function updateLocalIndexFromArr(arr){ var total=arr.length; indexBox.value = total+' / '+total; prevBtn.disabled = total<=1; nextBtn.disabled = true; dlBtn.disabled = total===0; }
-    function pushLocalHistoryItem(prompt, dataURL){ var arr=loadLocalHistory(); var id=(window.crypto && crypto.randomUUID)? crypto.randomUUID() : uuid(); var item={ id:id, n:arr.length+1, prompt:prompt, createdAt:Date.now() }; sessionImagesById.set(item.id, dataURL); arr.push(item); saveLocalHistory(arr); updateLocalIndexFromArr(arr); return item; }
-    function hydrateLocalLatest(){ var arr=loadLocalHistory(); if(arr.length){ var item=arr[arr.length-1]; var dataURL=sessionImagesById.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).catch(function(){}); dlBtn.disabled=false; } else { dlBtn.disabled=true; } indexBox.value=arr.length+' / '+arr.length; prevBtn.disabled=arr.length<=1; nextBtn.disabled=true; } else { indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; } }
+    function updateLocalIndexFromArr(arr){ var total=arr.length; indexBox.value=total+' / '+total; prevBtn.disabled=total<=1; nextBtn.disabled=true; dlBtn.disabled=total===0; }
+    function pushLocalHistoryItem(prompt, dataURL){ var arr=loadLocalHistory(); var id=(window.crypto && crypto.randomUUID)? crypto.randomUUID() : uuid(); var item={ id:id, n:arr.length+1, prompt:prompt, createdAt:Date.now() }; sessionImages.set(item.id, dataURL); arr.push(item); saveLocalHistory(arr); updateLocalIndexFromArr(arr); return item; }
+    function hydrateLocalLatest(){ var arr=loadLocalHistory(); if(arr.length){ var item=arr[arr.length-1]; var dataURL=sessionImages.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).catch(function(){}); dlBtn.disabled=false; } else { dlBtn.disabled=true; } indexBox.value=arr.length+' / '+arr.length; prevBtn.disabled=arr.length<=1; nextBtn.disabled=true; } else { indexBox.value='0 / 0'; prevBtn.disabled=true; nextBtn.disabled=true; dlBtn.disabled=true; } }
 
-    // ===================== TEXTURE APPLY =====================
-    function applyTextureFromDataURL(matName, dataURL){
-      var mat=findMaterial(matName); if(!api || !mat) return Promise.reject(new Error('Material not available'));
-      return new Promise(function(resolve,reject){
-        api.addTexture(dataURL, function(err, texUid){
-          if(err){ reject(err); return; }
-          var chName=baseColorChannel(mat);
-          mat.channels=Object.assign({}, mat.channels);
-          var ch=Object.assign({}, mat.channels[chName]||{});
-          ch.enable=true; ch.factor=(typeof ch.factor==='number')?ch.factor:1; ch.texture={uid:texUid}; ch.color=[1,1,1];
-          mat.channels[chName]=ch;
-          api.setMaterial(mat, function(e){ if(e) reject(e); else resolve(); });
-        });
-      });
-    }
-
-    // ===================== CONTROLS =====================
+    // ===== CONTROLS =====
     genBtn.addEventListener('click', function(){ doGenerate(); });
-    prevBtn.addEventListener('click', function(){ if (serverItems.length) { if (serverIndex > 0) { serverIndex -= 1; applyCurrentFromServer(); } } else { var arr=loadLocalHistory(); if(arr.length>1){ var target=Math.max(1, arr.length-1); var item=arr[target-1]; var dataURL=sessionImagesById.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ updateLocalIndexFromArr(arr); }); } } } });
-    nextBtn.addEventListener('click', function(){ if (serverItems.length) { if (serverIndex < serverItems.length-1) { serverIndex += 1; applyCurrentFromServer(); } } });
-    dlBtn.addEventListener('click', function(){
-      try{
-        var baseName = (currentModel && currentModel.id) ? currentModel.id : 'model';
-        if (serverItems.length) {
-          var it=serverItems[serverIndex]; if(!it) return;
-          var cached=getCachedDataURL(it);
-          var p = cached ? Promise.resolve({ dataURL: cached })
-                         : fetchDataURLViaProxy(it.url).then(function(d){ return d ? { dataURL:d } : { url: it.url }; })
-                           .catch(function(){ return { url: it.url }; });
-          p.then(function(res){
-            if (res.dataURL) { var a1=document.createElement('a'); a1.href=res.dataURL; a1.download=baseName+'_design.png'; document.body.appendChild(a1); a1.click(); a1.remove(); }
-            else if (res.url) { var a2=document.createElement('a'); a2.href=res.url; a2.target='_blank'; a2.rel='noopener'; a2.download=baseName+'_design.png'; document.body.appendChild(a2); a2.click(); a2.remove(); }
-          });
-        } else {
-          var arr=loadLocalHistory(); if(!arr.length) return; var item=arr[arr.length-1]; var dataURL=sessionImagesById.get(item.id); if(!dataURL) return; var a=document.createElement('a'); a.href=dataURL; a.download=baseName+'_design.png'; document.body.appendChild(a); a.click(); a.remove();
-        }
-      }catch(e){ console.warn('Download failed', e); }
-    });
+    prevBtn.addEventListener('click', function(){ if(serverItems.length){ if(serverIndex>0){ serverIndex -= 1; applyCurrentFromServer(); } } else { var arr=loadLocalHistory(); if(arr.length>1){ var target=Math.max(1, arr.length-1); var item=arr[target-1]; var dataURL=sessionImages.get(item.id); if(dataURL){ applyTextureFromDataURL(currentModel.designMat, dataURL).then(function(){ updateLocalIndexFromArr(arr); }); } } } });
+    nextBtn.addEventListener('click', function(){ if(serverItems.length && serverIndex < serverItems.length-1){ serverIndex += 1; applyCurrentFromServer(); } });
+    dlBtn.addEventListener('click', function(){ try{ var p; if(serverItems.length){ var it=serverItems[serverIndex]; if(!it) return; p=getDataURLForUrl(it.url).then(function(dataURL){ return { dataURL:dataURL }; }).catch(function(){ return { dataURL:null, url:it.url }; }); } else { var arr=loadLocalHistory(); if(!arr.length) return; var item=arr[arr.length-1]; var dataURL=sessionImages.get(item.id); if(!dataURL) return; p=Promise.resolve({ dataURL:dataURL }); } p.then(function(res){ var baseName=(currentModel && currentModel.id)? currentModel.id : 'model'; if(res.dataURL){ var a1=document.createElement('a'); a1.href=res.dataURL; a1.download=baseName+'_design.png'; document.body.appendChild(a1); a1.click(); a1.remove(); } else if(res.url){ var a2=document.createElement('a'); a2.href=res.url; a2.target='_blank'; a2.rel='noopener'; a2.download=baseName+'_design.png'; document.body.appendChild(a2); a2.click(); a2.remove(); } }); }catch(e){ console.warn('Download failed', e); } });
+    document.addEventListener('change', function(e){ var t=e.target; if(t && t.matches && t.matches('input.colorBox[type="color"]')){ try{ t.blur(); }catch(err){} } });
 
-    document.addEventListener('change', function(e){ var t=e.target; if(t && t.matches && t.matches('mini-color-picker')){ try{ t.blur && t.blur(); }catch(err){} } });
+    // ===== LAYOUT: keep viewer out from behind panel =====
+    function fitViewerToPanel(){ try{ var panel=document.querySelector('.panel'); var root=document.querySelector('.viewer-root'); if(panel && root){ var w=panel.getBoundingClientRect().width || 0; root.style.right=w+'px'; } }catch(e){} }
 
-    // ===================== INIT =====================
-    (function init(){ initSelectors(); })();
+    // ===== INIT =====
+    document.addEventListener('DOMContentLoaded', function(){ initSelectors(); fitViewerToPanel(); try{ if(window.ResizeObserver){ var ro=new ResizeObserver(function(){ fitViewerToPanel(); }); var p=document.querySelector('.panel'); if(p) ro.observe(p); } }catch(e){} });
+    window.addEventListener('resize', fitViewerToPanel);
 
-    // ===================== SELF-TESTS =====================
-    (function selfTest(){
-      function assert(name, cond){ if(!cond){ console.warn('[selfTest]', name, 'FAILED'); } }
-      try{
-        // Endpoints
-        assert('ENDPOINTS present', !!ENDPOINTS && !!ENDPOINTS.SAVE && !!ENDPOINTS.MY_IMAGES && !!ENDPOINTS.LEGACY_GENERATE && !!ENDPOINTS.FILE);
-        // uuid
-        assert('uuid format', /[0-9a-f]{8}-/.test(uuid()));
-        // finalPrompt assembly
-        var fp = (function(){ var mp='A'; var up='B'; return (mp+"
-
-"+up); })();
-        assert('finalPrompt newline join', fp === 'A
-
-B');
-        // Palette utilities
-        assert('paletteString non-empty', paletteString().length > 10);
-        assert('inPalette true', inPalette('#FFFFFF'));
-        assert('inPalette false', !inPalette('#0000FF'));
-        // Index math sanity
-        var _si = serverItems.slice(); var _idx = serverIndex; var _val = indexBox.value;
-        serverItems = [{url:'#1',prompt:'a',id:'1'},{url:'#2',prompt:'b',id:'2'},{url:'#3',prompt:'c',id:'3'}];
-        serverIndex = serverItems.length - 1; updateIndexUI(); assert('index shows newest as total/total', indexBox.value === '3 / 3');
-        serverIndex = 0; updateIndexUI(); assert('index shows oldest as 1/3', indexBox.value === '1 / 3');
-        // Cache helpers
-        cacheDataUrlForItem({id:'t1',url:'https://x/y.png'}, 'data:image/png;base64,AAA');
-        assert('cache by id', getCachedDataURL({id:'t1'}) === 'data:image/png;base64,AAA');
-        assert('cache by url', getCachedDataURL({url:'https://x/y.png'}) === 'data:image/png;base64,AAA');
-        // restore
-        serverItems=_si; serverIndex=_idx; indexBox.value=_val;
-      }catch(e){ console.warn('[selfTest] exception', e); }
-    })();
+    // ===== SELF-TESTS =====
+    (function selfTest(){ function assert(name,cond){ if(!cond){ console.warn('[selfTest]',name,'FAILED'); } } try{ assert('uuid format', /[0-9a-f]{8}-/.test(uuid())); var fp=(function(){ var p='A'; var u='B'; return p+'\n\n'+u; })(); assert('finalPrompt join', fp==='A\n\nB'); var cleaned=cleanDataUrl('data:image/png;base64,a b\nc\t'); assert('cleanDataUrl strips whitespace', cleaned==='data:image/png;base64,abc'); var cssOk=document.querySelector('#genBtn') && getComputedStyle(document.querySelector('#genBtn')).width.length>0; assert('button rule applied', !!cssOk); assert('getDataURLForUrl exists', typeof getDataURLForUrl === 'function'); assert('applyCurrentFromServer exists', typeof applyCurrentFromServer === 'function'); }catch(e){ console.warn('[selfTest] exception',e); } })();
   </script>
 </body>
 </html>
